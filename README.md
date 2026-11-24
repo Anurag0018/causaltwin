@@ -2,6 +2,8 @@
 
 **SNH-AI-01 · SpectoV National Hackathon AI Track** — *AI That Discovers Why a System Is Failing*
 
+Repository: [github.com/Anurag0018/causaltwin](https://github.com/Anurag0018/causaltwin)
+
 Most AI systems predict **what** will happen. CausalTwin answers **why** — and what to change.
 
 A conventional ML model can say *"machine temperature indicates 82% failure probability"*, but it
@@ -18,6 +20,28 @@ system from time-series **and event** data, so it can:
 This repo is the **Phase 0/1 starter scaffold** for a weekend build (see the weekend plan below).
 The full design is the aligned v3 blueprint: *CausalTwin Engineering Blueprint & Implementation
 Roadmap (Aligned to SNH-AI-01)*.
+
+---
+
+## Project status
+
+The initial backend scaffold is implemented and includes:
+
+- synthetic SCM and event-stream generation
+- PCMCI causal discovery with SHD and edge-F1 metrics
+- structural-equation intervention simulation
+- root-cause ranking
+- graph version registration and edge diffs
+- FastAPI endpoints for discovery, intervention, graph state, and explanations
+
+The Next.js frontend and benchmark notebook are placeholders for later phases.
+
+## Clone the repository
+
+```bash
+git clone https://github.com/Anurag0018/causaltwin.git
+cd causaltwin
+```
 
 ---
 
