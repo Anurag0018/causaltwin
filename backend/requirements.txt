@@ -1,0 +1,25 @@
+# CausalTwin — requirements.txt
+# Runtime: Python 3.11 (create the venv with python3.11 explicitly — see README Step Zero)
+#
+# --- Verified core causal stack (locked 2026-11-25; do NOT bump in isolation) ---
+# dowhy==0.13 is deliberate: dowhy 0.14 requires numpy>2.0, which conflicts with
+# numpy<2.0 / econml. numpy==1.26.4 is the last 1.x release.
+numpy==1.26.4
+scipy==1.15.3
+scikit-learn==1.6.1
+pandas==2.2.3
+tigramite==5.2.10.1
+dowhy==0.13
+econml==0.16.0
+statsmodels==0.14.4
+
+# --- API / graph / base learners (verified to resolve with the core pins) ---
+fastapi==0.115.6
+uvicorn==0.34.0
+pydantic==2.10.4
+networkx==3.4.2
+lightgbm==4.5.0
+
+# --- Tests ---
+pytest==8.3.4
+httpx==0.28.1
