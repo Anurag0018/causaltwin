@@ -2,29 +2,132 @@
 
 **SNH-AI-01 · SpectoV National Hackathon AI Track** — *AI That Discovers Why a System Is Failing*
 
-Most AI systems predict **what** will happen. CausalTwin answers **why** — and what to change.
+> Most AI predicts **what** will happen. CausalTwin answers **why** — and what to change.
+
+![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-17%20passing-brightgreen)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
+![Tigramite](https://img.shields.io/badge/Tigramite-PCMCI%20discovery-blue)
+![EconML / DoWhy](https://img.shields.io/badge/EconML%20%2F%20DoWhy-effect%20estimation-orange)
+![Dataset](https://img.shields.io/badge/dataset-NASA%20CMAPSS-lightgrey)
+
+CausalTwin builds a Structural Causal Model (SCM) of a dynamic system from time-series **and
+event** data. It is developed against a synthetic ground-truth SCM (where every claim can be
+scored honestly) and demonstrated on NASA CMAPSS turbofan run-to-failure data. The full design
+is the aligned v3 blueprint: *CausalTwin Engineering Blueprint & Implementation Roadmap
+(Aligned to SNH-AI-01)*.
+
+## What it does
+
+- **Discovers the causal graph** — PCMCI learns which variables actually drive which, with lags, instead of reporting correlations.
+- **Simulates `do(X = x')` what-if interventions** — set a lever to a new value and predict the downstream effect before touching the real system.
+- **Attributes root causes** — ranks upstream variables by how much of an anomaly each one explains.
+- **Recommends the smallest intervention** predicted to prevent or mitigate a failure.
+- **Explains itself** — every output ships with a confidence and a plain-language explanation card.
+
+## Why causal, not correlational
 
 A conventional ML model can say *"machine temperature indicates 82% failure probability"*, but it
 cannot distinguish **"Sensor X is correlated with the failure"** from **"changing Sensor X would
-actually prevent the failure."** CausalTwin builds a Structural Causal Model (SCM) of a dynamic
-system from time-series **and event** data, so it can:
+actually prevent the failure."** Only the second statement tells an operator what to do. CausalTwin
+is built to make the second kind of statement — and to prove it on ground truth before claiming
+it on real data.
 
-- discover causal relationships (not correlations),
-- simulate `do(X = x')` what-if interventions and predict downstream effects,
-- attribute anomalies to upstream root causes,
-- recommend the **smallest intervention** predicted to prevent or mitigate a failure —
-  with a confidence and a plain-language explanation for every output.
+## Architecture
 
-This repo is the **Phase 0/1 starter scaffold** for a weekend build (see the weekend plan below).
-**Phase 1 has started:** the NASA CMAPSS loader (`load_cmapss()` in `backend/app/data_loader.py`,
-with RUL computation, capped RUL, constant-sensor handling, an ADF `stationarity_report()` and
-per-unit `prepare_series()`) is implemented and tested.
-The full design is the aligned v3 blueprint: *CausalTwin Engineering Blueprint & Implementation
-Roadmap (Aligned to SNH-AI-01)*.
+```mermaid
+flowchart LR
+    A[Synthetic SCM - known ground truth] --> C[PCMCI discovery - Tigramite]
+    B[NASA CMAPSS FD001 - real engine data] --> C
+    C --> D[DML estimation - EconML]
+    D --> E[Refutation - DoWhy]
+    E --> F[Structural simulator - do-interventions]
+    E --> G[Root-cause attribution]
+    F --> H[FastAPI]
+    G --> H
+    H --> I[React Flow UI - Phase 6]
+```
 
----
+## Results so far
 
-## Step Zero — lock the environment BEFORE writing code
+### Environment & tests
+
+| Check | Result |
+|---|---|
+| Step Zero (clean venv, install, runtime smoke) | Verified on macOS arm64, Python 3.11.9 |
+| Test suite | **17 / 17 passing** |
+| CMAPSS FD001 file | 20,631 rows · 100 engines · sha256 verified exact match |
+
+### Discovery tuning — synthetic SCM (ground truth known)
+
+Recall is **1.0 in every configuration** — PCMCI never misses a true edge; all error is false
+positives, so precision is the battleground.
+
+| Config | n | tau_max | pc_alpha | Precision | Recall | Edge F1 | SHD |
+|---|---|---|---|---|---|---|---|
+| Baseline | 600 | 2 | 0.01 | 0.4286 | 1.0000 | 0.6000 | 16 |
+| **Best** | **2000** | **2** | **0.001** | **0.5714** | **1.0000** | **0.7273** | **9** |
+
+Findings: more data improves precision far more than threshold tuning (SHD 16 → 9 going
+n=600 → 2000), and `tau_max=3` hurts at both sizes — more lags means more false positives.
+Full sweep: `backend/scripts/discovery_tuning_results.json`.
+
+### CMAPSS discovery smoke run — real data, structure only
+
+Discovery on the longest-lived FD001 engine (unit 69, 362 cycles, 16 usable columns):
+
+| Series | ADF stationary | Edges found |
+|---|---|---|
+| Raw | 3 / 16 columns | 80 — dense, consistent with common-trend spurious links |
+| First-differenced | 16 / 16 columns | 34 — sparser, with physically plausible links (e.g. operating condition → HPC outlet pressure) |
+
+Takeaway: detrending/differencing is required before CMAPSS graphs are interpretable.
+**No accuracy is claimed on CMAPSS** — it is observational data with no ground-truth graph;
+this run demonstrates structure and plausibility only (see the honest-claims rule below).
+
+### Phase 3 — effect estimation
+
+Estimator smoke run (LinearDML effect vs the SCM's true effect, plus DoWhy refutation) is
+**in progress** — no numbers published until the run is complete and checked.
+
+## Project status
+
+- ✅ Phase 0 — starter scaffold (synthetic SCM, discovery, simulator, root-cause, FastAPI)
+- ✅ Step Zero — environment locked and verified (see below)
+- ✅ Phase 1 — CMAPSS FD001 loader (RUL, capped RUL, constant-sensor handling, ADF stationarity report, per-unit series)
+- 🔄 Phase 2 — causal discovery (tuning sweep ✅, CMAPSS smoke run ✅, final config pick pending)
+- 🔄 Phase 3 — DML effect estimation + refutation (smoke run in progress)
+- ⬜ Phase 4 — counterfactual rollout, root-cause and recommendation endpoints
+- ⬜ Phase 5 — benchmark vs correlational LightGBM baseline
+- ⬜ Phase 6 — React Flow UI
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Language | Python 3.11 (pinned — see Step Zero) |
+| API | FastAPI, Pydantic v2, uvicorn |
+| Causal discovery | Tigramite (PCMCI) |
+| Effect estimation | EconML (LinearDML) |
+| Causal modelling / refutation | DoWhy |
+| Structural equations / baseline | scikit-learn, LightGBM |
+| Stationarity testing | statsmodels (ADF) |
+| Graph handling | networkx |
+| Data | pandas, numpy, scipy |
+| Infra | Docker (`python:3.11-slim`), docker-compose |
+| Tests | pytest |
+| Frontend | React Flow (Phase 6, planned) |
+
+## Quickstart
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Anurag0018/causaltwin.git
+cd causaltwin
+```
+
+### Step Zero — lock the environment BEFORE writing code
 
 The causal stack (Tigramite / DoWhy / EconML on numpy, scipy, scikit-learn) is extremely
 version-sensitive. The pins in `backend/requirements.txt` were **verified together** — resolver,
@@ -66,8 +169,6 @@ Run the tests (module form, so the project interpreter and import path are right
 cd backend && python -m pytest        # from the activated venv
 ```
 
----
-
 ## Weekend plan (Sat 28 – Sun 29 Nov 2026)
 
 | When | Phase | Done when |
@@ -99,8 +200,14 @@ causaltwin/
 │   │   ├── root_cause.py       # residual z-score root-cause ranking
 │   │   ├── updater.py          # graph version registry + edge diff (Stage 0)
 │   │   └── explain.py          # confidence / explanation cards (§3.5)
-│   ├── scripts/smoke_test.py   # Step Zero verification
-│   └── tests/test_scm_engine.py
+│   ├── scripts/
+│   │   ├── smoke_test.py               # Step Zero verification
+│   │   ├── tune_discovery.py           # Phase 2 PCMCI tuning sweep (+ discovery_tuning_results.json)
+│   │   ├── cmapss_discovery_smoke.py   # Phase 2 CMAPSS discovery smoke run (+ cmapss_discovery_smoke.json)
+│   │   └── estimator_smoke.py          # Phase 3 estimator smoke run (in progress)
+│   └── tests/
+│       ├── test_scm_engine.py
+│       └── test_cmapss_loader.py
 ├── frontend/                   # Phase 6 placeholder — see frontend/README.md
 ├── notebooks/                  # Phase 5 benchmark notebook — see notebooks/README.md
 └── data/                       # local datasets (gitignored)
