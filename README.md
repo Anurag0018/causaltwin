@@ -2,8 +2,6 @@
 
 **SNH-AI-01 · SpectoV National Hackathon AI Track** — *AI That Discovers Why a System Is Failing*
 
-Repository: [github.com/Anurag0018/causaltwin](https://github.com/Anurag0018/causaltwin)
-
 Most AI systems predict **what** will happen. CausalTwin answers **why** — and what to change.
 
 A conventional ML model can say *"machine temperature indicates 82% failure probability"*, but it
@@ -18,30 +16,11 @@ system from time-series **and event** data, so it can:
   with a confidence and a plain-language explanation for every output.
 
 This repo is the **Phase 0/1 starter scaffold** for a weekend build (see the weekend plan below).
+**Phase 1 has started:** the NASA CMAPSS loader (`load_cmapss()` in `backend/app/data_loader.py`,
+with RUL computation, capped RUL, constant-sensor handling, an ADF `stationarity_report()` and
+per-unit `prepare_series()`) is implemented and tested.
 The full design is the aligned v3 blueprint: *CausalTwin Engineering Blueprint & Implementation
 Roadmap (Aligned to SNH-AI-01)*.
-
----
-
-## Project status
-
-The initial backend scaffold is implemented and includes:
-
-- synthetic SCM and event-stream generation
-- PCMCI causal discovery with SHD and edge-F1 metrics
-- structural-equation intervention simulation
-- root-cause ranking
-- graph version registration and edge diffs
-- FastAPI endpoints for discovery, intervention, graph state, and explanations
-
-The Next.js frontend and benchmark notebook are placeholders for later phases.
-
-## Clone the repository
-
-```bash
-git clone https://github.com/Anurag0018/causaltwin.git
-cd causaltwin
-```
 
 ---
 
@@ -94,7 +73,7 @@ cd backend && python -m pytest        # from the activated venv
 | When | Phase | Done when |
 |---|---|---|
 | Sat morning | **Step Zero** | venv on Python 3.11, smoke test passes, `requirements-lock.txt` committed |
-| Sat | **Phase 1 — Synthetic SCM & data/event pipeline** | `data_loader.generate()` (already working in the scaffold) extended: CMAPSS loader, ADF report wired into preprocessing |
+| Sat | **Phase 1 — Synthetic SCM & data/event pipeline** | `data_loader.generate()` (already working in the scaffold) extended: CMAPSS loader ✅ implemented (with RUL + preprocessing helpers), ADF report wired into preprocessing ✅ (`stationarity_report()` / `prepare_series()`) |
 | Sun | **Phase 2 — Causal discovery** | PCMCI on the synthetic SCM prints its first **SHD + Edge F1** vs the known ground truth (`POST /discover`) |
 | Later | Phase 3 DML + refutation → Phase 4 counterfactual/RCA/recommend → Phase 5 benchmark vs correlational LightGBM → Phase 6 React Flow UI | per blueprint |
 
@@ -113,7 +92,7 @@ causaltwin/
 │   ├── app/
 │   │   ├── main.py             # FastAPI: /health /discover /intervene /graph/versions /explain
 │   │   ├── schemas.py          # Pydantic v2: NodeSpec, EdgeSpec, EventSpec, TwinGraph, ...
-│   │   ├── data_loader.py      # synthetic SCM generator (known ground-truth DAG) + event stream + ADF helper
+│   │   ├── data_loader.py      # synthetic SCM generator (known ground-truth DAG) + event stream + CMAPSS loader + ADF/preprocessing helpers
 │   │   ├── discovery.py        # Tigramite PCMCI wrapper + SHD / Edge-F1 metrics
 │   │   ├── estimator.py        # EconML LinearDML for treatment→KPI pairs (Phase 3)
 │   │   ├── simulator.py        # structural equations + do(X) shift propagation (Phase 4)

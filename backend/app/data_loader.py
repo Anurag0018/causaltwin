@@ -15,6 +15,8 @@ system, not causes).
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -173,14 +175,142 @@ def adf_report(df: pd.DataFrame) -> dict:
     return report
 
 
-def load_cmapss(path: str) -> pd.DataFrame:
-    """NASA CMAPSS loader stub (Phase 1 extension).
+# ---------------------------------------------------------------------------
+# NASA CMAPSS (Phase 1 — implemented)
+#
+# CMAPSS is observational run-to-failure data: in this project it is used
+# for discovery / root-cause demonstration only — interventional claims
+# come from the synthetic SCM above.
+# ---------------------------------------------------------------------------
 
-    CMAPSS is observational run-to-failure data: in this project it is used
-    for discovery / root-cause demonstration only — interventional claims
-    come from the synthetic SCM above. Full parsing lands in Phase 1.
+CMAPSS_COLUMNS = (
+    ["unit", "cycle", "op_setting_1", "op_setting_2", "op_setting_3"]
+    + [f"s{i}" for i in range(1, 22)]
+)
+
+# Sensors that are constant (zero variance) across FD001 — the standard
+# FD001 constant-sensor list. They carry no signal, so modelling code
+# usually drops them; the loader keeps them by default and only drops
+# them when asked (drop_constant=True / select_sensors()).
+CMAPSS_CONSTANT_SENSORS_FD001 = ["s1", "s5", "s6", "s10", "s16", "s18", "s19"]
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CMAPSS_PATH = _REPO_ROOT / "data" / "train_FD001.txt"
+
+
+def load_cmapss(path=None, *, rul_cap: int | None = 125,
+                drop_constant: bool = False) -> pd.DataFrame:
+    """Load a NASA CMAPSS training file (e.g. train_FD001.txt).
+
+    The raw files are whitespace-separated with no header and 26 columns:
+    unit, cycle, 3 operational settings, then sensors s1..s21.
+
+    Args:
+        path: file to load. Defaults to <repo root>/data/train_FD001.txt.
+        rul_cap: piecewise-RUL cap (standard practice: 125 cycles — RUL is
+            clipped at this value because engines are effectively "healthy"
+            far from failure). Pass None for the raw, uncapped RUL.
+        drop_constant: if True, drop the known constant FD001 sensors
+            (s1, s5, s6, s10, s16, s18, s19 — see
+            CMAPSS_CONSTANT_SENSORS_FD001). Default False: the full raw
+            frame is returned; use select_sensors() to drop them later.
+
+    Returns:
+        DataFrame sorted by (unit, cycle) with numeric dtypes, the 26 raw
+        columns plus an `RUL` column (max cycle of the unit − cycle,
+        capped at rul_cap if given). RUL is 0 at each unit's last cycle.
+
+    Raises:
+        FileNotFoundError: with download/placement instructions if the
+            file does not exist.
     """
-    raise NotImplementedError(
-        "CMAPSS loading is a Phase 1 extension; the weekend scaffold "
-        "validates on the synthetic SCM (see README)."
-    )
+    file_path = Path(path) if path is not None else DEFAULT_CMAPSS_PATH
+    if not file_path.is_file():
+        raise FileNotFoundError(
+            f"CMAPSS data file not found: {file_path}\n"
+            "Download the NASA C-MAPSS 'Turbofan Engine Degradation "
+            "Simulation Data Set' (data.nasa.gov — C-MAPSS Jet Engine "
+            "Simulated Data; also mirrored at data.phmsociety.org/nasa), "
+            "unzip it, and place train_FD001.txt in the project's data/ "
+            f"directory (expected at {DEFAULT_CMAPSS_PATH})."
+        )
+    df = pd.read_csv(file_path, sep=r"\s+", header=None,
+                     names=CMAPSS_COLUMNS, engine="python")
+    # Trailing whitespace in some distributions yields an all-NaN extra
+    # column set; with fixed names anything beyond the 26 known columns is
+    # dropped defensively via the column list itself.
+    df = df[CMAPSS_COLUMNS]
+    for col in CMAPSS_COLUMNS:
+        df[col] = pd.to_numeric(df[col], errors="raise")
+    df["unit"] = df["unit"].astype(int)
+    df["cycle"] = df["cycle"].astype(int)
+    df = df.sort_values(["unit", "cycle"]).reset_index(drop=True)
+
+    max_cycle = df.groupby("unit")["cycle"].transform("max")
+    df["RUL"] = max_cycle - df["cycle"]
+    if rul_cap is not None:
+        df["RUL"] = df["RUL"].clip(upper=rul_cap)
+
+    if drop_constant:
+        df = select_sensors(df)
+    return df
+
+
+def select_sensors(df: pd.DataFrame, *,
+                   constant_sensors=CMAPSS_CONSTANT_SENSORS_FD001) -> pd.DataFrame:
+    """Return a copy of a CMAPSS frame without the constant FD001 sensors.
+
+    Only sensors actually present are dropped, so this is safe on any
+    subset frame. All non-sensor columns (unit, cycle, op settings, RUL)
+    are kept.
+    """
+    drop = [c for c in constant_sensors if c in df.columns]
+    return df.drop(columns=drop)
+
+
+def stationarity_report(df: pd.DataFrame, columns=None) -> dict:
+    """ADF stationarity report for selected columns (preprocessing, §3.1/§3.2).
+
+    Returns {column: {adf_statistic, p_value, stationary_bool}} where
+    stationary_bool is p_value < 0.05. `columns` defaults to all numeric
+    columns except unit/cycle/RUL (identifiers and the derived target are
+    not stationarity-tested).
+    """
+    from statsmodels.tsa.stattools import adfuller
+
+    if columns is None:
+        skip = {"unit", "cycle", "RUL"}
+        columns = [c for c in df.columns
+                   if c not in skip and pd.api.types.is_numeric_dtype(df[c])]
+    report = {}
+    for col in columns:
+        stat, p_value, *_ = adfuller(df[col].dropna().to_numpy(), autolag="AIC")
+        report[col] = {
+            "adf_statistic": float(stat),
+            "p_value": float(p_value),
+            "stationary_bool": bool(p_value < 0.05),
+        }
+    return report
+
+
+def prepare_series(df: pd.DataFrame, unit_id, columns=None) -> pd.DataFrame:
+    """Extract one engine unit's time series in cycle order (preprocessing).
+
+    Returns a copy containing `cycle` plus the requested columns (default:
+    all columns), sorted by cycle with a fresh RangeIndex — the per-unit
+    series shape the discovery stage consumes.
+
+    Raises:
+        ValueError: if unit_id is not present in df.
+    """
+    unit_df = df[df["unit"] == unit_id]
+    if unit_df.empty:
+        raise ValueError(
+            f"unit {unit_id!r} not present in frame "
+            f"(units available: {sorted(df['unit'].unique())[:10]}...)"
+        )
+    unit_df = unit_df.sort_values("cycle").reset_index(drop=True)
+    if columns is not None:
+        keep = ["cycle"] + [c for c in columns if c != "cycle"]
+        unit_df = unit_df[keep]
+    return unit_df
