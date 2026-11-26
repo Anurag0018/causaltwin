@@ -1,0 +1,550 @@
+{
+  "phase": "Phase 4 \u2014 end-to-end twin on synthetic SCM",
+  "n_steps": 2000,
+  "fit_seed": 0,
+  "rca": {
+    "scaffold": {
+      "cases": [
+        {
+          "fault_node": "coolant_temp",
+          "delta_z": 1.2,
+          "seed": 0,
+          "true_node_rank": 4,
+          "top3": [
+            "maintenance_event",
+            "fan_speed_nc",
+            "vibration"
+          ],
+          "top1_hit": false,
+          "top3_hit": false
+        },
+        {
+          "fault_node": "coolant_temp",
+          "delta_z": 1.2,
+          "seed": 1,
+          "true_node_rank": 2,
+          "top3": [
+            "load",
+            "coolant_temp",
+            "power_draw"
+          ],
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "coolant_temp",
+          "delta_z": 1.2,
+          "seed": 2,
+          "true_node_rank": 1,
+          "top3": [
+            "coolant_temp",
+            "oil_pressure",
+            "vibration"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "delta_z": 1.2,
+          "seed": 0,
+          "true_node_rank": 2,
+          "top3": [
+            "maintenance_event",
+            "hpc_outlet_temp",
+            "fan_speed_nc"
+          ],
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "delta_z": 1.2,
+          "seed": 1,
+          "true_node_rank": 1,
+          "top3": [
+            "hpc_outlet_temp",
+            "load",
+            "power_draw"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "delta_z": 1.2,
+          "seed": 2,
+          "true_node_rank": 1,
+          "top3": [
+            "hpc_outlet_temp",
+            "oil_pressure",
+            "coolant_temp"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "delta_z": 1.2,
+          "seed": 0,
+          "true_node_rank": 1,
+          "top3": [
+            "vibration",
+            "hpc_outlet_temp",
+            "load"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "delta_z": 1.2,
+          "seed": 1,
+          "true_node_rank": 2,
+          "top3": [
+            "maintenance_event",
+            "vibration",
+            "hpc_outlet_temp"
+          ],
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "delta_z": 1.2,
+          "seed": 2,
+          "true_node_rank": 1,
+          "top3": [
+            "vibration",
+            "hpc_outlet_temp",
+            "power_draw"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "delta_z": -1.2,
+          "seed": 0,
+          "true_node_rank": 2,
+          "top3": [
+            "maintenance_event",
+            "oil_pressure",
+            "fan_speed_nc"
+          ],
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "delta_z": -1.2,
+          "seed": 1,
+          "true_node_rank": 1,
+          "top3": [
+            "oil_pressure",
+            "load",
+            "failure_risk"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "delta_z": -1.2,
+          "seed": 2,
+          "true_node_rank": 2,
+          "top3": [
+            "coolant_temp",
+            "oil_pressure",
+            "vibration"
+          ],
+          "top1_hit": false,
+          "top3_hit": true
+        }
+      ],
+      "top1_accuracy": 0.5,
+      "top3_accuracy": 0.9166666666666666
+    },
+    "phase4": {
+      "cases": [
+        {
+          "fault_node": "coolant_temp",
+          "delta_z": 1.2,
+          "seed": 0,
+          "true_node_rank": 1,
+          "top3": [
+            "coolant_temp",
+            "load",
+            "oil_pressure"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "coolant_temp",
+          "delta_z": 1.2,
+          "seed": 1,
+          "true_node_rank": 1,
+          "top3": [
+            "coolant_temp",
+            "load",
+            "vibration"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "coolant_temp",
+          "delta_z": 1.2,
+          "seed": 2,
+          "true_node_rank": 1,
+          "top3": [
+            "coolant_temp",
+            "maintenance_event",
+            "load"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "delta_z": 1.2,
+          "seed": 0,
+          "true_node_rank": 1,
+          "top3": [
+            "hpc_outlet_temp",
+            "load",
+            "oil_pressure"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "delta_z": 1.2,
+          "seed": 1,
+          "true_node_rank": 1,
+          "top3": [
+            "hpc_outlet_temp",
+            "load",
+            "vibration"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "delta_z": 1.2,
+          "seed": 2,
+          "true_node_rank": 1,
+          "top3": [
+            "hpc_outlet_temp",
+            "maintenance_event",
+            "load"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "delta_z": 1.2,
+          "seed": 0,
+          "true_node_rank": 1,
+          "top3": [
+            "vibration",
+            "maintenance_event",
+            "load"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "delta_z": 1.2,
+          "seed": 1,
+          "true_node_rank": 1,
+          "top3": [
+            "vibration",
+            "maintenance_event",
+            "load"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "delta_z": 1.2,
+          "seed": 2,
+          "true_node_rank": 1,
+          "top3": [
+            "vibration",
+            "maintenance_event",
+            "load"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "delta_z": -1.2,
+          "seed": 0,
+          "true_node_rank": 1,
+          "top3": [
+            "oil_pressure",
+            "failure_risk",
+            "load"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "delta_z": -1.2,
+          "seed": 1,
+          "true_node_rank": 1,
+          "top3": [
+            "oil_pressure",
+            "failure_risk",
+            "load"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "delta_z": -1.2,
+          "seed": 2,
+          "true_node_rank": 1,
+          "top3": [
+            "oil_pressure",
+            "failure_risk",
+            "maintenance_event"
+          ],
+          "top1_hit": true,
+          "top3_hit": true
+        }
+      ],
+      "top1_accuracy": 1.0,
+      "top3_accuracy": 1.0
+    },
+    "protocol": {
+      "faults": [
+        {
+          "node": "coolant_temp",
+          "delta_z": 1.2
+        },
+        {
+          "node": "hpc_outlet_temp",
+          "delta_z": 1.2
+        },
+        {
+          "node": "vibration",
+          "delta_z": 1.2
+        },
+        {
+          "node": "oil_pressure",
+          "delta_z": -1.2
+        }
+      ],
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "fault_window": [
+        1000,
+        1060
+      ],
+      "n_steps": 2000,
+      "scaffold": "rank_root_causes fit on the faulted series itself, single timestep t=1030 (window midpoint)",
+      "phase4": "rank_root_causes fit on the pre-fault reference period (rows [0, 1000)), z-scores averaged over the whole fault window \u2014 the deployed-twin protocol",
+      "note": "fault = sustained z-space mechanism shift via app.faults.simulate_scm, propagating through the true dynamics. Fault set and seeds pre-registered in this script."
+    },
+    "top1_accuracy": 1.0,
+    "top3_accuracy": 1.0
+  },
+  "whatif": {
+    "fault": {
+      "node": "coolant_temp",
+      "delta_z": 1.2,
+      "start": 1000,
+      "end": 1600
+    },
+    "settled_window": [
+      1250,
+      1600
+    ],
+    "natural_failure_risk": 32.790639224608775,
+    "faulted_failure_risk": 52.736749486734105,
+    "fault_elevation_points": 19.94611026212533,
+    "rows": [
+      {
+        "fan_delta_rpm": 40.0,
+        "fan_elevation_measured_rpm": 40.0,
+        "latent_analytic_shift_points": -15.899999999999999,
+        "predicted_failure_risk_shift": -12.360544318948028,
+        "scaffold_predicted_failure_risk_shift": -8.03751516530593,
+        "actual_failure_risk_shift": -10.13503014264841,
+        "abs_error": 2.225514176299617,
+        "scaffold_abs_error": 2.097514977342481,
+        "abs_error_vs_latent": 3.5394556810519706,
+        "scaffold_abs_error_vs_latent": 7.862484834694069
+      },
+      {
+        "fan_delta_rpm": 80.0,
+        "fan_elevation_measured_rpm": 80.0,
+        "latent_analytic_shift_points": -31.799999999999997,
+        "predicted_failure_risk_shift": -24.721088637896056,
+        "scaffold_predicted_failure_risk_shift": -16.07503033061186,
+        "actual_failure_risk_shift": -20.018453119268194,
+        "abs_error": 4.702635518627861,
+        "scaffold_abs_error": 3.943422788656335,
+        "abs_error_vs_latent": 7.078911362103941,
+        "scaffold_abs_error_vs_latent": 15.724969669388138
+      },
+      {
+        "fan_delta_rpm": 120.0,
+        "fan_elevation_measured_rpm": 120.0,
+        "latent_analytic_shift_points": -47.699999999999996,
+        "predicted_failure_risk_shift": -37.08163295684409,
+        "scaffold_predicted_failure_risk_shift": -24.11254549591779,
+        "actual_failure_risk_shift": -28.835216337517352,
+        "abs_error": 8.246416619326737,
+        "scaffold_abs_error": 4.722670841599562,
+        "abs_error_vs_latent": 10.618367043155907,
+        "scaffold_abs_error_vs_latent": 23.587454504082206
+      }
+    ],
+    "rmse": 5.629419189385915,
+    "scaffold_rmse": 3.75294427742472,
+    "rmse_vs_latent": 7.64609816080147,
+    "scaffold_rmse_vs_latent": 16.98490848627215,
+    "diagnosis": "measured decomposition for +80 rpm (points): latent analytic steady state -31.80 (replica latent trajectories match the path algebra exactly: coolant -1.500 z, hpc -2.650 z, failure_risk -2.650 z) -> Phase 4 simulator -24.72 -> observed actual -20.02 -> scaffold -16.08. The latent->observed attenuation (~11.8 points) is the [0, 100] clip on the observed failure_risk: the latent series is high-variance (std ~4 z, because the nodes share the load driver and add coherently), so the faulted run loses ~3 points to the upper clip and the intervened run gains from the lower clip. OLS fitted on the observed (clipped) data absorbs part of that attenuation, which is why the Phase 4 prediction sits between latent and observed. Against the OBSERVED target (the Phase 3 like-for-like convention) the scaffold's RMSE is lower on this scenario \u2014 its two errors (parent coefficients inflated by the omitted own-lag term; no steady-state amplification) partially cancel. Against the LATENT system the Phase 4 simulator is far closer (RMSE 7.65 vs 16.98). Both statements are reported; neither is hidden."
+  },
+  "recommendation_story": {
+    "target_reduction_points": 19.94611026212533,
+    "target_adjusted": false,
+    "recommendation": {
+      "param": "fan_speed_nc",
+      "direction": "Increasing",
+      "pct": 3.1,
+      "kpi": "failure_risk",
+      "effect_pct": 60.2,
+      "ci_95": [
+        54.0,
+        61.3
+      ],
+      "path": "fan_speed_nc drives coolant_temp, which drives hpc_outlet_temp, which drives failure_risk",
+      "negligible_param": "power_draw",
+      "graph_version": 1,
+      "refutation_status": "passed",
+      "delta": 70.0,
+      "lever_baseline": 2252.5461628437934,
+      "target_baseline": 35.951591341316,
+      "target_reduction_points": 19.94611026212533,
+      "predicted_reduction_points": 21.630952558159052,
+      "negligible_candidate": {
+        "param": "power_draw",
+        "delta": 50.0,
+        "predicted_reduction_points": -0.0
+      },
+      "candidates": [
+        {
+          "param": "fan_speed_nc",
+          "delta": 10.0,
+          "predicted_reduction_points": 3.090136079737007,
+          "meets_target": false
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 20.0,
+          "predicted_reduction_points": 6.180272159474014,
+          "meets_target": false
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 30.0,
+          "predicted_reduction_points": 9.270408239211022,
+          "meets_target": false
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 40.0,
+          "predicted_reduction_points": 12.360544318948028,
+          "meets_target": false
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 50.0,
+          "predicted_reduction_points": 15.450680398685039,
+          "meets_target": false
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 60.0,
+          "predicted_reduction_points": 18.540816478422045,
+          "meets_target": false
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 70.0,
+          "predicted_reduction_points": 21.630952558159052,
+          "meets_target": true
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 80.0,
+          "predicted_reduction_points": 24.721088637896056,
+          "meets_target": true
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 90.0,
+          "predicted_reduction_points": 27.811224717633067,
+          "meets_target": true
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 100.0,
+          "predicted_reduction_points": 30.901360797370078,
+          "meets_target": true
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 110.0,
+          "predicted_reduction_points": 33.99149687710709,
+          "meets_target": true
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 120.0,
+          "predicted_reduction_points": 37.08163295684409,
+          "meets_target": true
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 130.0,
+          "predicted_reduction_points": 40.171769036581104,
+          "meets_target": true
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 140.0,
+          "predicted_reduction_points": 43.261905116318104,
+          "meets_target": true
+        },
+        {
+          "param": "fan_speed_nc",
+          "delta": 150.0,
+          "predicted_reduction_points": 46.35204119605511,
+          "meets_target": true
+        }
+      ]
+    },
+    "actual_reduction_points": 17.59970520894354,
+    "actual_fraction_of_target": 0.8823627753809593,
+    "note": "the card carries the simulator's prediction (what a recommendation is); the true-SCM measurement shows the recommended change achieves 88% of the target reduction \u2014 short of full offset by the same ~20% observed-scale overprediction documented in the what-if validation",
+    "explanation_card": "Increasing fan_speed_nc by 3.1% is predicted to reduce failure_risk by 60.2% [95% CI 54.0 to 61.3], because fan_speed_nc drives coolant_temp, which drives hpc_outlet_temp, which drives failure_risk. Changing power_draw produces negligible improvement. Graph v1, refutation: passed."
+  },
+  "runtime_seconds": 3.34
+}

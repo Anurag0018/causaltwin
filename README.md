@@ -1,11 +1,11 @@
 # CausalTwin — Causal Digital Twin & Simulator
 
-**SNH-AI-01 · SpectoV National Hackathon AI Track** — *AI That Discovers Why a System Is Failing*
+*AI that discovers why a system is failing — and what to change to fix it.*
 
 > Most AI predicts **what** will happen. CausalTwin answers **why** — and what to change.
 
 ![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-17%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-24%20passing-brightgreen)
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Tigramite](https://img.shields.io/badge/Tigramite-PCMCI%20discovery-blue)
 ![EconML / DoWhy](https://img.shields.io/badge/EconML%20%2F%20DoWhy-effect%20estimation-orange)
@@ -14,8 +14,7 @@
 CausalTwin builds a Structural Causal Model (SCM) of a dynamic system from time-series **and
 event** data. It is developed against a synthetic ground-truth SCM (where every claim can be
 scored honestly) and demonstrated on NASA CMAPSS turbofan run-to-failure data. The full design
-is the aligned v3 blueprint: *CausalTwin Engineering Blueprint & Implementation Roadmap
-(Aligned to SNH-AI-01)*.
+is documented in the *CausalTwin Engineering Blueprint & Implementation Roadmap*.
 
 ## What it does
 
@@ -55,7 +54,7 @@ flowchart LR
 | Check | Result |
 |---|---|
 | Step Zero (clean venv, install, runtime smoke) | Verified on macOS arm64, Python 3.11.9 |
-| Test suite | **17 / 17 passing** |
+| Test suite | **24 / 24 passing** |
 | CMAPSS FD001 file | 20,631 rows · 100 engines · sha256 verified exact match |
 
 ### Discovery tuning — synthetic SCM (ground truth known)
@@ -85,10 +84,72 @@ Takeaway: detrending/differencing is required before CMAPSS graphs are interpret
 **No accuracy is claimed on CMAPSS** — it is observational data with no ground-truth graph;
 this run demonstrates structure and plausibility only (see the honest-claims rule below).
 
-### Phase 3 — effect estimation
+### Phase 3 — effect estimation (smoke run)
 
-Estimator smoke run (LinearDML effect vs the SCM's true effect, plus DoWhy refutation) is
-**in progress** — no numbers published until the run is complete and checked.
+LinearDML estimate of the `fan_speed_nc(t) → failure_risk(t+3)` total effect vs the true
+effect from pulse simulation on the SCM (common random numbers):
+
+| Quantity | Value |
+|---|---|
+| LinearDML estimate | **−0.0693** failure-risk points per +1 fan unit (95% CI −0.0764 … −0.0623) |
+| True effect on the observed (clipped) outcome | −0.0653 / unit → **ATE error 0.004 / unit** |
+| Latent (unclipped) true effect | −0.0958 / unit — the gap vs the estimate is the generator's [0, 100] output clipping, not estimator bias |
+| DoWhy refutation | **3 / 3 pass** (random common cause, placebo treatment, data subset) |
+
+Full detail: `backend/scripts/estimator_smoke_results.json`.
+
+### Phase 4 — the twin end-to-end: fault → root cause → what-if → recommendation
+
+End-to-end run on the synthetic SCM (`backend/scripts/phase4_end_to_end.py`, results in
+`backend/scripts/phase4_results.json`). The simulator was also upgraded: structural equations
+now include each node's own-lag AR term and propagate **steady-state** shifts exactly
+(the scaffold's one-pass propagation ignored the 1/(1−a) amplification at every node).
+
+**Root-cause attribution** — sustained faults injected into the true dynamics
+(4 fault nodes × 3 seeds, pre-registered; ranking by residual z-score):
+
+| Protocol | Top-1 | Top-3 |
+|---|---|---|
+| Scaffold (fit on the faulted series, single timestep) | 0.500 | 0.917 |
+| **Phase 4 (fit on the pre-fault reference period, score over the fault window)** | **1.000** | **1.000** |
+
+Why the gap: fitting on data that contains a sustained fault biases the faulted node's AR
+coefficient toward 1 — the model learns to expect the elevated level and the culprit's
+z-score collapses (measured +1.0 where ~+3.4 was expected), while one-step coincidences
+(a binary maintenance event firing at the scored instant, z = +3.9) spike. The Phase 4
+protocol is how a deployed twin actually runs: reference model from clean history,
+anomaly scored over a window.
+
+**What-if validation** — cooling fault active; sustained fan overrides in the true SCM vs
+simulator predictions (failure-risk points):
+
+| Fan change | Latent analytic | Phase 4 simulator | Scaffold simulator | Actual (observed) |
+|---|---|---|---|---|
+| +40 rpm | −15.90 | −12.36 | −8.04 | −10.14 |
+| +80 rpm | −31.80 | −24.72 | −16.08 | −20.02 |
+| +120 rpm | −47.70 | −37.08 | −24.11 | −28.84 |
+| **RMSE** | — | **5.63** (vs latent: **7.65**) | 3.75 (vs latent: 16.99) | — |
+
+Read this honestly: against the *latent* system the Phase 4 simulator is far closer
+(RMSE 7.65 vs 16.99). Against the *observed* outcome the scaffold's RMSE is lower on this
+scenario — its two errors (parent coefficients inflated by the omitted own-lag term; no
+steady-state amplification) partially cancel. The latent→observed attenuation (~11.8 of
+31.8 points at +80 rpm) is the [0, 100] clip on observed failure_risk: the latent series
+is high-variance (std ≈ 4 z, because the nodes share the load driver), so both clips bite.
+
+**Recommendation + explanation** — target: undo the cooling fault's +19.95-point
+failure-risk elevation. The engine (`POST /recommend`) picks the smallest sufficient
+change: **fan_speed_nc +70 rpm (+3.1%)**, predicted reduction 21.63 points; measured in
+the true SCM it achieves 17.60 points (88% of target — short by the same observed-scale
+overprediction documented above). The card it ships:
+
+> Increasing fan_speed_nc by 3.1% is predicted to reduce failure_risk by 60.2%
+> [95% CI 54.0 to 61.3], because fan_speed_nc drives coolant_temp, which drives
+> hpc_outlet_temp, which drives failure_risk. Changing power_draw produces negligible
+> improvement. Graph v1, refutation: passed.
+
+(`power_draw` is the honest negligible alternative: strongly correlated with failure_risk,
+but with no causal path to it, its predicted effect is exactly 0.)
 
 ## Project status
 
@@ -96,8 +157,8 @@ Estimator smoke run (LinearDML effect vs the SCM's true effect, plus DoWhy refut
 - ✅ Step Zero — environment locked and verified (see below)
 - ✅ Phase 1 — CMAPSS FD001 loader (RUL, capped RUL, constant-sensor handling, ADF stationarity report, per-unit series)
 - 🔄 Phase 2 — causal discovery (tuning sweep ✅, CMAPSS smoke run ✅, final config pick pending)
-- 🔄 Phase 3 — DML effect estimation + refutation (smoke run in progress)
-- ⬜ Phase 4 — counterfactual rollout, root-cause and recommendation endpoints
+- ✅ Phase 3 — DML effect estimation + refutation (smoke run: ATE error 0.004/unit vs observed-outcome truth, 3/3 refuters pass)
+- ✅ Phase 4 — end-to-end twin: fault injection, root-cause attribution (Top-1 1.000 under the deployed protocol), what-if validation, `/recommend` endpoint + explanation cards
 - ⬜ Phase 5 — benchmark vs correlational LightGBM baseline
 - ⬜ Phase 6 — React Flow UI
 
@@ -191,23 +252,27 @@ causaltwin/
 │   ├── Dockerfile              # python:3.11-slim
 │   ├── requirements.txt        # verified pins — see Step Zero
 │   ├── app/
-│   │   ├── main.py             # FastAPI: /health /discover /intervene /graph/versions /explain
+│   │   ├── main.py             # FastAPI: /health /discover /intervene /recommend /graph/versions /explain
 │   │   ├── schemas.py          # Pydantic v2: NodeSpec, EdgeSpec, EventSpec, TwinGraph, ...
 │   │   ├── data_loader.py      # synthetic SCM generator (known ground-truth DAG) + event stream + CMAPSS loader + ADF/preprocessing helpers
 │   │   ├── discovery.py        # Tigramite PCMCI wrapper + SHD / Edge-F1 metrics
 │   │   ├── estimator.py        # EconML LinearDML for treatment→KPI pairs (Phase 3)
-│   │   ├── simulator.py        # structural equations + do(X) shift propagation (Phase 4)
-│   │   ├── root_cause.py       # residual z-score root-cause ranking
+│   │   ├── simulator.py        # structural equations (own-lag terms) + steady-state do(X) propagation
+│   │   ├── faults.py           # SCM replica with fault-injection + ground-truth intervention hooks (Phase 4)
+│   │   ├── recommend.py        # smallest-sufficient-intervention engine + bootstrap CI (Phase 4)
+│   │   ├── root_cause.py       # residual z-score root-cause ranking (clean-reference fit + windowed scoring)
 │   │   ├── updater.py          # graph version registry + edge diff (Stage 0)
 │   │   └── explain.py          # confidence / explanation cards (§3.5)
 │   ├── scripts/
 │   │   ├── smoke_test.py               # Step Zero verification
 │   │   ├── tune_discovery.py           # Phase 2 PCMCI tuning sweep (+ discovery_tuning_results.json)
 │   │   ├── cmapss_discovery_smoke.py   # Phase 2 CMAPSS discovery smoke run (+ cmapss_discovery_smoke.json)
-│   │   └── estimator_smoke.py          # Phase 3 estimator smoke run (in progress)
+│   │   ├── estimator_smoke.py          # Phase 3 estimator smoke run (+ estimator_smoke_results.json)
+│   │   └── phase4_end_to_end.py        # Phase 4 end-to-end run (+ phase4_results.json)
 │   └── tests/
 │       ├── test_scm_engine.py
-│       └── test_cmapss_loader.py
+│       ├── test_cmapss_loader.py
+│       └── test_phase4.py
 ├── frontend/                   # Phase 6 placeholder — see frontend/README.md
 ├── notebooks/                  # Phase 5 benchmark notebook — see notebooks/README.md
 └── data/                       # local datasets (gitignored)

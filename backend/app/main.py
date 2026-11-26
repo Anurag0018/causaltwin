@@ -4,6 +4,8 @@ Endpoints (blueprint §5, Phase 6 surface):
   GET  /health          service + causal-stack versions
   POST /discover        synthetic data -> PCMCI discovery + metrics vs ground truth
   POST /intervene       fit structural equations on the ground-truth graph, apply do(X)
+  POST /recommend       smallest sustained lever change predicted to cut failure_risk
+                        by the requested amount, with its explanation card (Phase 4)
   GET  /graph/versions  registered graph versions (+ optional diff)
   POST /explain         explanation card for a recommendation
 """
@@ -18,6 +20,7 @@ from pydantic import BaseModel
 from . import data_loader
 from .discovery import edge_metrics, run_discovery
 from .explain import format_explanation
+from .recommend import recommend_intervention
 from .schemas import EdgeSpec, InterventionRequest, NodeSpec, RecommendationResponse, TwinGraph
 from .simulator import StructuralEquations
 from .updater import GraphRegistry
@@ -96,6 +99,32 @@ def intervene(req: InterventionRequest):
     df, ground_truth, _ = data_loader.generate(n_steps=req.n_steps, seed=req.seed)
     se = StructuralEquations().fit(df, ground_truth)
     return se.intervene(req.node, req.delta, req.target)
+
+
+class RecommendRequest(BaseModel):
+    n_steps: int = 2000
+    seed: int = 0
+    target_reduction_points: float = 5.0
+    lever: str = "fan_speed_nc"
+
+
+@app.post("/recommend")
+def recommend(req: RecommendRequest):
+    df, ground_truth, _ = data_loader.generate(n_steps=req.n_steps, seed=req.seed)
+    se = StructuralEquations().fit(df, ground_truth)
+    rec = recommend_intervention(
+        se,
+        target_reduction_points=req.target_reduction_points,
+        lever=req.lever,
+        graph_version=registry.list_versions()[-1],
+        df=df,
+        edges=ground_truth,
+    )
+    card_fields = {k: rec[k] for k in (
+        "param", "pct", "kpi", "effect_pct", "ci_95", "path",
+        "negligible_param", "graph_version", "refutation_status", "direction")}
+    rec["explanation"] = format_explanation(card_fields)
+    return rec
 
 
 @app.get("/graph/versions")
