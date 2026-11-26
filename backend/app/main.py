@@ -15,6 +15,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 import numpy as np
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from . import data_loader
@@ -26,6 +27,16 @@ from .simulator import StructuralEquations
 from .updater import GraphRegistry
 
 app = FastAPI(title="CausalTwin", version="0.1.0")
+
+# The console normally reaches the API through the Next.js /api rewrite
+# (same-origin, no CORS needed). CORS is enabled for the direct mode, where
+# NEXT_PUBLIC_API_URL points the browser straight at this backend.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 registry = GraphRegistry()
 

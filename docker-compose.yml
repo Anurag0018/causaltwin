@@ -7,12 +7,14 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
 
-  # Phase 6 (blueprint §5): Next.js + React Flow twin UI.
-  # Uncomment once frontend/ contains the Next app (see frontend/README.md).
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - backend
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - BACKEND_URL=http://backend:8000
+    environment:
+      - BACKEND_URL=http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend

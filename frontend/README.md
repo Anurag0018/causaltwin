@@ -1,30 +1,51 @@
-# Frontend — Phase 6 (placeholder)
+# Frontend — CausalTwin Console
 
-The twin UI is **Phase 6** of the blueprint, built after the engine
-(Phases 1–5) produces numbers worth visualising. Nothing here is built yet.
+Next.js (App Router) + React Flow (`@xyflow/react`) console for the CausalTwin
+backend. One page: the discovered causal graph, a what-if simulator, and the
+recommendation engine with its explanation card.
 
-## Planned stack
-
-Next.js + Tailwind CSS + **React Flow** for the interactive causal graph.
+## Run it
 
 ```bash
-npx create-next-app@latest . --typescript --tailwind --app
-npm install reactflow
+# 1. backend (from the repo root, venv activated)
+cd backend && uvicorn app.main:app --port 8000
+
+# 2. frontend
+cd frontend && npm install && npm run dev     # http://localhost:3000
 ```
 
-## Planned pages / components
+Production build: `npm run build && npm start`. Or both services together from
+the repo root: `docker compose up --build` (UI on :3000, API on :8000).
 
-- `app/page.tsx` — twin dashboard: graph canvas + KPI header
-- `components/CausalGraph.tsx` — React Flow DAG: nodes coloured by role
-  (lever / state / KPI / event), edges labelled with lag + effect size,
-  root-cause heat colouring
-- `components/InterventionPanel.tsx` — sliders for actionable levers;
-  calls `POST /intervene`, renders before/after trajectories
-- `components/RecommendationCard.tsx` — output of `POST /recommend` rendered
-  with the explanation card from `POST /explain` (effect, CI, causal path,
-  graph version, refutation status)
-- `components/GraphVersionPicker.tsx` — version selector + edge-diff view
-  over `GET /graph/versions` and `GET /graph/diff`
+## How it talks to the API
 
-API base: the FastAPI backend on `:8000` (proxy `/api/*` to it in
-`next.config.js`, the same pattern as the NeuroRoute console — no CORS).
+The browser calls the same-origin `/api/*` path; `next.config.js` rewrites it
+server-side to the backend (`BACKEND_URL`, default `http://localhost:8000`;
+docker-compose sets it to the backend service). No CORS setup is needed in
+this mode. To call the backend directly instead, set
+`NEXT_PUBLIC_API_URL=http://localhost:8000` — the backend allows CORS from
+`localhost:3000`/`3001` for that mode.
+
+## Layout of the app
+
+- `app/page.tsx` — the console: slim header (backend status, graph version),
+  graph canvas with a Discovered / Ground-truth toggle, a 380px sidebar
+  (Discovery · What-if · Recommendation · Root cause) and a status strip with
+  the last discovery's metrics.
+- `components/CausalGraph.tsx` — React Flow canvas with custom nodes.
+- `components/TwinNode.tsx` — node card: name, role tag (lever / KPI / state /
+  exogenous / event) and unit; the KPI node carries the accent border.
+- `components/InterventionPanel.tsx` — what-if panel (`POST /intervene`) and
+  recommendation panel (`POST /recommend`).
+- `components/RecommendationCard.tsx` — the recommendation as a designed card:
+  smallest sufficient change, predicted effect with CI, causal path, the
+  negligible alternative, refutation status — plus the explanation prose.
+- `components/GraphVersionPicker.tsx` — selector over `GET /graph/versions`.
+- `lib/api.ts` — typed API client (shapes mirror `backend/app/main.py`).
+- `lib/graph.ts` — topological layering that turns API edges into positioned
+  React Flow nodes/edges with lag labels.
+
+Design: Inter (via `next/font`), one accent colour (indigo-600), 1px borders
+instead of shadows, tabular figures for all numbers. Root-cause ranking is
+evaluated offline in the engine and is not exposed by the API yet — the
+sidebar reports its measured benchmark result rather than a live panel.

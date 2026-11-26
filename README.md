@@ -50,7 +50,7 @@ flowchart LR
     E --> G[Root-cause attribution]
     F --> H[FastAPI]
     G --> H
-    H --> I[React Flow UI - planned]
+    H --> I[React Flow UI]
 ```
 
 ---
@@ -288,7 +288,7 @@ cd backend && python -m pytest        # from the activated venv
 | Data | pandas, numpy, scipy |
 | Infra | Docker (`python:3.11-slim`), docker-compose |
 | Tests | pytest |
-| Frontend | React Flow (planned) |
+| Frontend | Next.js (App Router), React Flow (`@xyflow/react`), Tailwind CSS |
 
 ---
 
@@ -296,7 +296,7 @@ cd backend && python -m pytest        # from the activated venv
 
 ```
 causaltwin/
-├── docker-compose.yml          # backend service (+ frontend placeholder)
+├── docker-compose.yml          # backend + frontend services
 ├── backend/
 │   ├── Dockerfile              # python:3.11-slim
 │   ├── requirements.txt        # verified pins — see Step Zero
@@ -325,7 +325,7 @@ causaltwin/
 │       ├── test_cmapss_loader.py
 │       ├── test_phase4.py
 │       └── test_benchmark.py
-├── frontend/                   # web UI placeholder — see frontend/README.md
+├── frontend/                   # Next.js + React Flow console (app/, components/, lib/) — see frontend/README.md
 ├── notebooks/                  # benchmark notebook (benchmark.ipynb) — see notebooks/README.md
 └── data/                       # local datasets (gitignored)
 ```
@@ -345,7 +345,8 @@ graph updating and root-cause tracing, not intervention accuracy.
 
 Backend engine complete and tested (25 tests) — discovery, effect estimation with
 refutation, root-cause attribution, what-if simulation, recommendations with explanation
-cards, and the LightGBM benchmark are all in and measured. Web UI and deployment are next.
+cards, and the LightGBM benchmark are all in and measured. The web console
+(Next.js + React Flow, in `frontend/`) is built and wired to the API; deployment is next.
 
 ---
 
