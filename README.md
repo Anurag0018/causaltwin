@@ -16,6 +16,8 @@ event** data. It is developed against a synthetic ground-truth SCM (where every 
 scored honestly) and demonstrated on NASA CMAPSS turbofan run-to-failure data. The full design
 is documented in the *CausalTwin Engineering Blueprint & Implementation Roadmap*.
 
+---
+
 ## What it does
 
 - **Discovers the causal graph** — PCMCI learns which variables actually drive which, with lags, instead of reporting correlations.
@@ -24,6 +26,8 @@ is documented in the *CausalTwin Engineering Blueprint & Implementation Roadmap*
 - **Recommends the smallest intervention** predicted to prevent or mitigate a failure.
 - **Explains itself** — every output ships with a confidence and a plain-language explanation card.
 
+---
+
 ## Why causal, not correlational
 
 A conventional ML model can say *"machine temperature indicates 82% failure probability"*, but it
@@ -31,6 +35,8 @@ cannot distinguish **"Sensor X is correlated with the failure"** from **"changin
 actually prevent the failure."** Only the second statement tells an operator what to do. CausalTwin
 is built to make the second kind of statement — and to prove it on ground truth before claiming
 it on real data.
+
+---
 
 ## Architecture
 
@@ -44,21 +50,28 @@ flowchart LR
     E --> G[Root-cause attribution]
     F --> H[FastAPI]
     G --> H
-    H --> I[React Flow UI - Phase 6]
+    H --> I[React Flow UI - planned]
 ```
 
-## Results so far
+---
 
-### Environment & tests
+## Results
+
+Every interventional number below is measured on the synthetic ground-truth SCM, where the
+true graph and true effects are known (see the honest-claims rule). Real-data results are
+structural only.
+
+### Verification
 
 | Check | Result |
 |---|---|
-| Step Zero (clean venv, install, runtime smoke) | Verified on macOS arm64, Python 3.11.9 |
+| Environment setup (clean venv, install, runtime smoke) | Verified on macOS arm64, Python 3.11.9 |
 | Test suite | **25 / 25 passing** |
 | CMAPSS FD001 file | 20,631 rows · 100 engines · sha256 verified exact match |
 
-### Discovery tuning — synthetic SCM (ground truth known)
+### Causal discovery
 
+Tuning sweep on the synthetic SCM (full sweep: `backend/scripts/discovery_tuning_results.json`).
 Recall is **1.0 in every configuration** — PCMCI never misses a true edge; all error is false
 positives, so precision is the battleground.
 
@@ -69,25 +82,12 @@ positives, so precision is the battleground.
 
 Findings: more data improves precision far more than threshold tuning (SHD 16 → 9 going
 n=600 → 2000), and `tau_max=3` hurts at both sizes — more lags means more false positives.
-Full sweep: `backend/scripts/discovery_tuning_results.json`.
 
-### CMAPSS discovery smoke run — real data, structure only
-
-Discovery on the longest-lived FD001 engine (unit 69, 362 cycles, 16 usable columns):
-
-| Series | ADF stationary | Edges found |
-|---|---|---|
-| Raw | 3 / 16 columns | 80 — dense, consistent with common-trend spurious links |
-| First-differenced | 16 / 16 columns | 34 — sparser, with physically plausible links (e.g. operating condition → HPC outlet pressure) |
-
-Takeaway: detrending/differencing is required before CMAPSS graphs are interpretable.
-**No accuracy is claimed on CMAPSS** — it is observational data with no ground-truth graph;
-this run demonstrates structure and plausibility only (see the honest-claims rule below).
-
-### Phase 3 — effect estimation (smoke run)
+### Effect estimation
 
 LinearDML estimate of the `fan_speed_nc(t) → failure_risk(t+3)` total effect vs the true
-effect from pulse simulation on the SCM (common random numbers):
+effect from pulse simulation on the SCM (common random numbers). Full detail:
+`backend/scripts/estimator_smoke_results.json`.
 
 | Quantity | Value |
 |---|---|
@@ -96,52 +96,50 @@ effect from pulse simulation on the SCM (common random numbers):
 | Latent (unclipped) true effect | −0.0958 / unit — the gap vs the estimate is the generator's [0, 100] output clipping, not estimator bias |
 | DoWhy refutation | **3 / 3 pass** (random common cause, placebo treatment, data subset) |
 
-Full detail: `backend/scripts/estimator_smoke_results.json`.
+### Root-cause attribution
 
-### Phase 4 — the twin end-to-end: fault → root cause → what-if → recommendation
-
-End-to-end run on the synthetic SCM (`backend/scripts/phase4_end_to_end.py`, results in
-`backend/scripts/phase4_results.json`). The simulator was also upgraded: structural equations
-now include each node's own-lag AR term and propagate **steady-state** shifts exactly
-(the scaffold's one-pass propagation ignored the 1/(1−a) amplification at every node).
-
-**Root-cause attribution** — sustained faults injected into the true dynamics
-(4 fault nodes × 3 seeds, pre-registered; ranking by residual z-score):
+Sustained faults injected into the true dynamics (4 fault nodes × 3 seeds, pre-registered;
+ranking by residual z-score):
 
 | Protocol | Top-1 | Top-3 |
 |---|---|---|
-| Scaffold (fit on the faulted series, single timestep) | 0.500 | 0.917 |
-| **Phase 4 (fit on the pre-fault reference period, score over the fault window)** | **1.000** | **1.000** |
+| Naive (fit on the faulted series, single timestep) | 0.500 | 0.917 |
+| **Deployed (fit on the pre-fault reference period, score over the fault window)** | **1.000** | **1.000** |
 
-Why the gap: fitting on data that contains a sustained fault biases the faulted node's AR
-coefficient toward 1 — the model learns to expect the elevated level and the culprit's
-z-score collapses (measured +1.0 where ~+3.4 was expected), while one-step coincidences
-(a binary maintenance event firing at the scored instant, z = +3.9) spike. The Phase 4
-protocol is how a deployed twin actually runs: reference model from clean history,
+**Protocol matters.** Fitting on data that contains a sustained fault biases the faulted
+node's AR coefficient toward 1 — the model learns to expect the elevated level and the
+culprit's z-score collapses (measured +1.0 where ~+3.4 was expected), while one-step
+coincidences (a binary maintenance event firing at the scored instant, z = +3.9) spike.
+The deployed protocol is how a twin actually runs: reference model from clean history,
 anomaly scored over a window.
 
-**What-if validation** — cooling fault active; sustained fan overrides in the true SCM vs
-simulator predictions (failure-risk points):
+### What-if simulation and recommendation
 
-| Fan change | Latent analytic | Phase 4 simulator | Scaffold simulator | Actual (observed) |
+The simulator's structural equations include each node's own-lag AR term and propagate
+**steady-state** shifts exactly (a one-pass propagation ignores the 1/(1−a) amplification
+at every node). Validation — cooling fault active; sustained fan overrides in the true SCM
+vs simulator predictions (failure-risk points):
+
+| Fan change | Latent analytic | Steady-state simulator | One-pass simulator | Actual (observed) |
 |---|---|---|---|---|
 | +40 rpm | −15.90 | −12.36 | −8.04 | −10.14 |
 | +80 rpm | −31.80 | −24.72 | −16.08 | −20.02 |
 | +120 rpm | −47.70 | −37.08 | −24.11 | −28.84 |
 | **RMSE** | — | **5.63** (vs latent: **7.65**) | 3.75 (vs latent: 16.99) | — |
 
-Read this honestly: against the *latent* system the Phase 4 simulator is far closer
-(RMSE 7.65 vs 16.99). Against the *observed* outcome the scaffold's RMSE is lower on this
-scenario — its two errors (parent coefficients inflated by the omitted own-lag term; no
-steady-state amplification) partially cancel. The latent→observed attenuation (~11.8 of
-31.8 points at +80 rpm) is the [0, 100] clip on observed failure_risk: the latent series
-is high-variance (std ≈ 4 z, because the nodes share the load driver), so both clips bite.
+Read this honestly: against the *latent* system the steady-state simulator is far closer
+(RMSE 7.65 vs 16.99). Against the *observed* outcome the one-pass simulator's RMSE is
+lower on this scenario — its two errors (parent coefficients inflated by the omitted
+own-lag term; no steady-state amplification) partially cancel. The latent→observed
+attenuation (~11.8 of 31.8 points at +80 rpm) is the [0, 100] clip on observed
+failure_risk: the latent series is high-variance (std ≈ 4 z, because the nodes share the
+load driver), so both clips bite.
 
-**Recommendation + explanation** — target: undo the cooling fault's +19.95-point
-failure-risk elevation. The engine (`POST /recommend`) picks the smallest sufficient
+**Recommendation** — target: undo the cooling fault's +19.95-point failure-risk
+elevation. The recommendation engine (`POST /recommend`) picks the smallest sufficient
 change: **fan_speed_nc +70 rpm (+3.1%)**, predicted reduction 21.63 points; measured in
 the true SCM it achieves 17.60 points (88% of target — short by the same observed-scale
-overprediction documented above). The card it ships:
+overprediction documented above). The explanation card it ships:
 
 > Increasing fan_speed_nc by 3.1% is predicted to reduce failure_risk by 60.2%
 > [95% CI 54.0 to 61.3], because fan_speed_nc drives coolant_temp, which drives
@@ -151,16 +149,16 @@ overprediction documented above). The card it ships:
 (`power_draw` is the honest negligible alternative: strongly correlated with failure_risk,
 but with no causal path to it, its predicted effect is exactly 0.)
 
-### Phase 5 — benchmark vs a correlational LightGBM baseline
+### Benchmark vs a correlational baseline (LightGBM)
 
-The project's thesis — *prediction ≠ intervention* — tested head-to-head
-(`backend/scripts/benchmark_baseline.py`, results in `backend/scripts/benchmark_results.json`;
-readable version: `notebooks/benchmark.ipynb`). Both models are trained on the **same**
-normal-operation data (n=2000, seed 0). The baseline is the standard "just ML" approach:
-a LightGBM regressor predicting `failure_risk` from the current state snapshot (all other
-nodes, incl. the lever and `power_draw`); its what-if is the practitioner's one — bump the
-lever feature, hold everything else natural. Ground truth for interventions comes from the
-true dynamics (`app.faults` step hooks, settled window, Phase 4 protocol).
+The project's thesis — *prediction ≠ intervention* — tested head-to-head (script and
+results JSON in `backend/scripts/`; readable version: `notebooks/benchmark.ipynb`). Both
+models are trained on the **same** normal-operation data (n=2000, seed 0). The baseline is
+the standard "just ML" approach: a LightGBM regressor predicting `failure_risk` from the
+current state snapshot (all other nodes, incl. the lever and `power_draw`); its what-if is
+the practitioner's one — bump the lever feature, hold everything else natural. Ground
+truth for interventions comes from the true dynamics (step hooks in the SCM replica,
+settled window, same protocol as the what-if validation above).
 
 **Intervention prediction** — predicted vs actual failure-risk change (points) under
 sustained `do(fan_speed_nc)` overrides:
@@ -181,7 +179,7 @@ true −9 … −29): the fan reaches failure_risk only through a lagged chain
 almost no signal — and a single-output regressor has no mechanism to move the mediators.
 That failure is structural, not a tuning problem. The causal twin overpredicts magnitude
 (linear steady state vs the [0, 100]-clipped observed outcome — the same observed-scale
-effect documented in Phase 4; its cooling-fault RMSE of 5.63 reproduces Phase 4's what-if
+effect documented above; its cooling-fault RMSE of 5.63 reproduces the what-if validation
 number exactly) but gets direction, ordering and most of the size.
 
 **In-distribution prediction** (honesty check — held-out natural run, seed 1, no
@@ -192,7 +190,7 @@ plainly, but it is not the load-bearing claim: on a system whose KPI parents wer
 directly and contemporaneously observed, a correlational model could match it at pure
 prediction — and would still fail the intervention test above.
 
-**Root cause** — the Phase 4 fault set (4 faults × 3 seeds):
+**Root cause** — the same injected-fault set as above (4 faults × 3 seeds):
 
 | Method | Top-1 | Top-3 |
 |---|---|---|
@@ -204,36 +202,23 @@ fan_speed_nc > power_draw > maintenance_event. One global ranking is scored agai
 every incident: importance has no per-incident view, so a fault at `coolant_temp`
 (rank 5) is unfindable by it no matter how clean the incident — that asymmetry is part
 of what is being measured, and it is how practitioners actually use importance for
-diagnosis. (Causal RCA recomputed in the benchmark run; it reproduces the Phase 4
-published 1.000 / 1.000 exactly.)
+diagnosis. (Causal RCA recomputed in the benchmark run; it reproduces the root-cause
+result above exactly.)
 
-## Project status
+### Real data: NASA CMAPSS
 
-- ✅ Phase 0 — starter scaffold (synthetic SCM, discovery, simulator, root-cause, FastAPI)
-- ✅ Step Zero — environment locked and verified (see below)
-- ✅ Phase 1 — CMAPSS FD001 loader (RUL, capped RUL, constant-sensor handling, ADF stationarity report, per-unit series)
-- 🔄 Phase 2 — causal discovery (tuning sweep ✅, CMAPSS smoke run ✅, final config pick pending)
-- ✅ Phase 3 — DML effect estimation + refutation (smoke run: ATE error 0.004/unit vs observed-outcome truth, 3/3 refuters pass)
-- ✅ Phase 4 — end-to-end twin: fault injection, root-cause attribution (Top-1 1.000 under the deployed protocol), what-if validation, `/recommend` endpoint + explanation cards
-- ✅ Phase 5 — benchmark vs correlational LightGBM baseline: intervention RMSE 8.21 vs 18.46 points, RCA Top-1 1.000 vs 0.250 (notebook + script)
-- ⬜ Phase 6 — React Flow UI
+Discovery on the longest-lived FD001 engine (unit 69, 362 cycles, 16 usable columns):
 
-## Tech stack
+| Series | ADF stationary | Edges found |
+|---|---|---|
+| Raw | 3 / 16 columns | 80 — dense, consistent with common-trend spurious links |
+| First-differenced | 16 / 16 columns | 34 — sparser, with physically plausible links (e.g. operating condition → HPC outlet pressure) |
 
-| Layer | Technology |
-|---|---|
-| Language | Python 3.11 (pinned — see Step Zero) |
-| API | FastAPI, Pydantic v2, uvicorn |
-| Causal discovery | Tigramite (PCMCI) |
-| Effect estimation | EconML (LinearDML) |
-| Causal modelling / refutation | DoWhy |
-| Structural equations / baseline | scikit-learn, LightGBM |
-| Stationarity testing | statsmodels (ADF) |
-| Graph handling | networkx |
-| Data | pandas, numpy, scipy |
-| Infra | Docker (`python:3.11-slim`), docker-compose |
-| Tests | pytest |
-| Frontend | React Flow (Phase 6, planned) |
+Takeaway: detrending/differencing is required before CMAPSS graphs are interpretable.
+**No accuracy is claimed on CMAPSS** — it is observational data with no ground-truth graph;
+this demonstrates structure and plausibility only (see the honest-claims rule below).
+
+---
 
 ## Quickstart
 
@@ -286,24 +271,32 @@ Run the tests (module form, so the project interpreter and import path are right
 cd backend && python -m pytest        # from the activated venv
 ```
 
-## Weekend plan (Sat 28 – Sun 29 Nov 2026)
+---
 
-| When | Phase | Done when |
-|---|---|---|
-| Sat morning | **Step Zero** | venv on Python 3.11, smoke test passes, `requirements-lock.txt` committed |
-| Sat | **Phase 1 — Synthetic SCM & data/event pipeline** | `data_loader.generate()` (already working in the scaffold) extended: CMAPSS loader ✅ implemented (with RUL + preprocessing helpers), ADF report wired into preprocessing ✅ (`stationarity_report()` / `prepare_series()`) |
-| Sun | **Phase 2 — Causal discovery** | PCMCI on the synthetic SCM prints its first **SHD + Edge F1** vs the known ground truth (`POST /discover`) |
-| Later | Phase 3 DML + refutation → Phase 4 counterfactual/RCA/recommend → Phase 5 benchmark vs correlational LightGBM → Phase 6 React Flow UI | per blueprint |
+## Tech stack
 
-The scaffold already contains working starter versions of every engine module
-(discovery, estimator, simulator, root-cause, updater, explain) so the weekend
-starts at Phase 1 code, not at setup.
+| Layer | Technology |
+|---|---|
+| Language | Python 3.11 (pinned — see Step Zero) |
+| API | FastAPI, Pydantic v2, uvicorn |
+| Causal discovery | Tigramite (PCMCI) |
+| Effect estimation | EconML (LinearDML) |
+| Causal modelling / refutation | DoWhy |
+| Structural equations / baseline | scikit-learn, LightGBM |
+| Stationarity testing | statsmodels (ADF) |
+| Graph handling | networkx |
+| Data | pandas, numpy, scipy |
+| Infra | Docker (`python:3.11-slim`), docker-compose |
+| Tests | pytest |
+| Frontend | React Flow (planned) |
+
+---
 
 ## Repo map
 
 ```
 causaltwin/
-├── docker-compose.yml          # backend service (+ frontend placeholder, Phase 6)
+├── docker-compose.yml          # backend service (+ frontend placeholder)
 ├── backend/
 │   ├── Dockerfile              # python:3.11-slim
 │   ├── requirements.txt        # verified pins — see Step Zero
@@ -312,39 +305,52 @@ causaltwin/
 │   │   ├── schemas.py          # Pydantic v2: NodeSpec, EdgeSpec, EventSpec, TwinGraph, ...
 │   │   ├── data_loader.py      # synthetic SCM generator (known ground-truth DAG) + event stream + CMAPSS loader + ADF/preprocessing helpers
 │   │   ├── discovery.py        # Tigramite PCMCI wrapper + SHD / Edge-F1 metrics
-│   │   ├── estimator.py        # EconML LinearDML for treatment→KPI pairs (Phase 3)
+│   │   ├── estimator.py        # EconML LinearDML for treatment→KPI pairs
 │   │   ├── simulator.py        # structural equations (own-lag terms) + steady-state do(X) propagation
-│   │   ├── faults.py           # SCM replica with fault-injection + ground-truth intervention hooks (Phase 4)
-│   │   ├── recommend.py        # smallest-sufficient-intervention engine + bootstrap CI (Phase 4)
+│   │   ├── faults.py           # SCM replica with fault-injection + ground-truth intervention hooks
+│   │   ├── recommend.py        # smallest-sufficient-intervention engine + bootstrap CI
 │   │   ├── root_cause.py       # residual z-score root-cause ranking (clean-reference fit + windowed scoring)
-│   │   ├── updater.py          # graph version registry + edge diff (Stage 0)
-│   │   └── explain.py          # confidence / explanation cards (§3.5)
+│   │   ├── updater.py          # graph version registry + edge diff
+│   │   └── explain.py          # confidence / explanation cards
 │   ├── scripts/
 │   │   ├── smoke_test.py               # Step Zero verification
-│   │   ├── tune_discovery.py           # Phase 2 PCMCI tuning sweep (+ discovery_tuning_results.json)
-│   │   ├── cmapss_discovery_smoke.py   # Phase 2 CMAPSS discovery smoke run (+ cmapss_discovery_smoke.json)
-│   │   ├── estimator_smoke.py          # Phase 3 estimator smoke run (+ estimator_smoke_results.json)
-│   │   ├── phase4_end_to_end.py        # Phase 4 end-to-end run (+ phase4_results.json)
-│   │   └── benchmark_baseline.py       # Phase 5 benchmark vs LightGBM baseline (+ benchmark_results.json)
+│   │   ├── tune_discovery.py           # PCMCI tuning sweep (+ discovery_tuning_results.json)
+│   │   ├── cmapss_discovery_smoke.py   # CMAPSS discovery smoke run (+ cmapss_discovery_smoke.json)
+│   │   ├── estimator_smoke.py          # effect-estimation smoke run (+ estimator_smoke_results.json)
+│   │   ├── phase4_end_to_end.py        # end-to-end run: fault → root cause → what-if → recommendation (+ phase4_results.json)
+│   │   └── benchmark_baseline.py       # benchmark vs LightGBM baseline (+ benchmark_results.json)
 │   └── tests/
+│       ├── conftest.py
 │       ├── test_scm_engine.py
 │       ├── test_cmapss_loader.py
 │       ├── test_phase4.py
 │       └── test_benchmark.py
-├── frontend/                   # Phase 6 placeholder — see frontend/README.md
-├── notebooks/                  # Phase 5 benchmark notebook (benchmark.ipynb) — see notebooks/README.md
+├── frontend/                   # web UI placeholder — see frontend/README.md
+├── notebooks/                  # benchmark notebook (benchmark.ipynb) — see notebooks/README.md
 └── data/                       # local datasets (gitignored)
 ```
 
-## Honest-claims rule (from the blueprint)
+---
+
+## Honest-claims rule
 
 Interventional accuracy (SHD, ATE error, intervention RMSE) is claimed **only** from the
 synthetic ground-truth SCM, where the true DAG and true effects are known. NASA CMAPSS is
 observational run-to-failure data — on that tier CausalTwin demonstrates discovery,
 graph updating and root-cause tracing, not intervention accuracy.
 
-## Phase-1 additions (not in the scaffold's requirements)
+---
 
-`xgboost`, `polars` and `duckdb` are deliberately **not** pinned yet. Add them in Phase 1
-only after re-running the full smoke test with them included, and regenerate
-`requirements-lock.txt` — never add a package to this stack unverified.
+## Status
+
+Backend engine complete and tested (25 tests) — discovery, effect estimation with
+refutation, root-cause attribution, what-if simulation, recommendations with explanation
+cards, and the LightGBM benchmark are all in and measured. Web UI and deployment are next.
+
+---
+
+## Development notes
+
+**Optional extras — not yet pinned.** `xgboost`, `polars` and `duckdb` are deliberately
+**not** pinned yet. Add them only after re-running the full smoke test with them included,
+and regenerate `requirements-lock.txt` — never add a package to this stack unverified.
