@@ -33,7 +33,18 @@ export type TwinNodeData = {
 export type TwinNode = Node<TwinNodeData, "twin">;
 
 /** Topological layering: each node's layer is the longest path from any
- *  source, so causes sit left of effects and same-depth nodes stack. */
+ *  source, so causes sit left of effects and same-depth nodes stack.
+ *
+ *  The layering MUST be cycle-safe. PCMCI returns lagged edges; collapsed
+ *  to node pairs they can form directed cycles (e.g. vibration ->
+ *  maintenance_event at lag 1 and maintenance_event -> vibration at
+ *  lag 1). A naive longest-path relaxation never converges on a cycle —
+ *  every pass pushes the cycle members (and everything downstream of
+ *  them) one layer further right, which once produced a 5,136px-wide
+ *  graph whose nodes all landed outside the fitted viewport. Here the
+ *  longest path is computed by memoised DFS and any edge pointing back
+ *  to a node already on the DFS stack is ignored for layering (it is
+ *  still drawn — it simply routes as a feedback edge). */
 export function layoutGraph(edges: EdgeOut[]): { nodes: TwinNode[]; edges: Edge[] } {
   const ids = new Set<string>();
   edges.forEach((e) => {
@@ -41,19 +52,28 @@ export function layoutGraph(edges: EdgeOut[]): { nodes: TwinNode[]; edges: Edge[
     ids.add(e.target);
   });
 
+  const preds = new Map<string, string[]>();
+  ids.forEach((id) => preds.set(id, []));
+  edges.forEach((e) => {
+    if (e.source !== e.target) preds.get(e.target)!.push(e.source);
+  });
+
   const layer = new Map<string, number>();
-  ids.forEach((id) => layer.set(id, 0));
-  for (let pass = 0; pass < ids.size; pass++) {
-    let changed = false;
-    for (const e of edges) {
-      const want = (layer.get(e.source) ?? 0) + 1;
-      if (want > (layer.get(e.target) ?? 0)) {
-        layer.set(e.target, want);
-        changed = true;
-      }
+  const inStack = new Set<string>();
+  const computeLayer = (id: string): number => {
+    const memo = layer.get(id);
+    if (memo !== undefined) return memo;
+    inStack.add(id);
+    let best = 0;
+    for (const p of [...new Set(preds.get(id) ?? [])].sort()) {
+      if (inStack.has(p)) continue; // back-edge of a cycle: not a layering step
+      best = Math.max(best, computeLayer(p) + 1);
     }
-    if (!changed) break;
-  }
+    inStack.delete(id);
+    layer.set(id, best);
+    return best;
+  };
+  [...ids].sort().forEach(computeLayer);
 
   const byLayer = new Map<number, string[]>();
   layer.forEach((l, id) => {
@@ -62,8 +82,8 @@ export function layoutGraph(edges: EdgeOut[]): { nodes: TwinNode[]; edges: Edge[
     byLayer.set(l, arr);
   });
 
-  const X_GAP = 248;
-  const Y_GAP = 112;
+  const X_GAP = 280;
+  const Y_GAP = 116;
   const nodes: TwinNode[] = [];
   [...byLayer.entries()]
     .sort((a, b) => a[0] - b[0])
@@ -76,6 +96,11 @@ export function layoutGraph(edges: EdgeOut[]): { nodes: TwinNode[]; edges: Edge[
           id,
           type: "twin",
           position: { x: l * X_GAP, y: i * Y_GAP - totalH / 2 },
+          // Lets fitView frame the graph correctly on the first paint,
+          // before React Flow has measured the rendered cards (176px is
+          // the fixed card width set in TwinNode).
+          initialWidth: 176,
+          initialHeight: 56,
           data: { name: meta.label, tag: ROLE_TAG[meta.role] ?? meta.role, unit: meta.unit, role: meta.role },
         });
       });
