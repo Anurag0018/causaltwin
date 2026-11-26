@@ -5,7 +5,7 @@
 > Most AI predicts **what** will happen. CausalTwin answers **why** — and what to change.
 
 ![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-24%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-25%20passing-brightgreen)
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Tigramite](https://img.shields.io/badge/Tigramite-PCMCI%20discovery-blue)
 ![EconML / DoWhy](https://img.shields.io/badge/EconML%20%2F%20DoWhy-effect%20estimation-orange)
@@ -54,7 +54,7 @@ flowchart LR
 | Check | Result |
 |---|---|
 | Step Zero (clean venv, install, runtime smoke) | Verified on macOS arm64, Python 3.11.9 |
-| Test suite | **24 / 24 passing** |
+| Test suite | **25 / 25 passing** |
 | CMAPSS FD001 file | 20,631 rows · 100 engines · sha256 verified exact match |
 
 ### Discovery tuning — synthetic SCM (ground truth known)
@@ -151,6 +151,62 @@ overprediction documented above). The card it ships:
 (`power_draw` is the honest negligible alternative: strongly correlated with failure_risk,
 but with no causal path to it, its predicted effect is exactly 0.)
 
+### Phase 5 — benchmark vs a correlational LightGBM baseline
+
+The project's thesis — *prediction ≠ intervention* — tested head-to-head
+(`backend/scripts/benchmark_baseline.py`, results in `backend/scripts/benchmark_results.json`;
+readable version: `notebooks/benchmark.ipynb`). Both models are trained on the **same**
+normal-operation data (n=2000, seed 0). The baseline is the standard "just ML" approach:
+a LightGBM regressor predicting `failure_risk` from the current state snapshot (all other
+nodes, incl. the lever and `power_draw`); its what-if is the practitioner's one — bump the
+lever feature, hold everything else natural. Ground truth for interventions comes from the
+true dynamics (`app.faults` step hooks, settled window, Phase 4 protocol).
+
+**Intervention prediction** — predicted vs actual failure-risk change (points) under
+sustained `do(fan_speed_nc)` overrides:
+
+| Scenario | Fan change | Actual | Causal twin | LightGBM |
+|---|---|---|---|---|
+| normal | +40 rpm | −8.83 | −12.36 | −0.09 |
+| normal | +80 rpm | −16.15 | −24.72 | −0.52 |
+| normal | +120 rpm | −22.12 | −37.08 | −0.74 |
+| cooling fault | +40 rpm | −10.14 | −12.36 | −0.16 |
+| cooling fault | +80 rpm | −20.02 | −24.72 | −0.52 |
+| cooling fault | +120 rpm | −28.84 | −37.08 | −0.77 |
+| **RMSE** | | | **8.21** | **18.46** |
+
+The baseline's what-if is essentially *"nothing happens"* (−0.1 … −0.8 points against a
+true −9 … −29): the fan reaches failure_risk only through a lagged chain
+(fan → coolant → HPC temperature → risk), so a snapshot model's lever feature carries
+almost no signal — and a single-output regressor has no mechanism to move the mediators.
+That failure is structural, not a tuning problem. The causal twin overpredicts magnitude
+(linear steady state vs the [0, 100]-clipped observed outcome — the same observed-scale
+effect documented in Phase 4; its cooling-fault RMSE of 5.63 reproduces Phase 4's what-if
+number exactly) but gets direction, ordering and most of the size.
+
+**In-distribution prediction** (honesty check — held-out natural run, seed 1, no
+interventions): causal one-step RMSE **6.84** vs LightGBM snapshot RMSE **12.10**. The
+causal model wins here too on this system, because it predicts from the true lagged
+parents while the snapshot model infers state from contemporaneous correlates. Reported
+plainly, but it is not the load-bearing claim: on a system whose KPI parents were
+directly and contemporaneously observed, a correlational model could match it at pure
+prediction — and would still fail the intervention test above.
+
+**Root cause** — the Phase 4 fault set (4 faults × 3 seeds):
+
+| Method | Top-1 | Top-3 |
+|---|---|---|
+| **Causal RCA (per incident)** | **1.000** | **1.000** |
+| LightGBM gain importance (global) | 0.250 | 0.750 |
+
+Importance ranking: oil_pressure > hpc_outlet_temp > vibration > load > coolant_temp >
+fan_speed_nc > power_draw > maintenance_event. One global ranking is scored against
+every incident: importance has no per-incident view, so a fault at `coolant_temp`
+(rank 5) is unfindable by it no matter how clean the incident — that asymmetry is part
+of what is being measured, and it is how practitioners actually use importance for
+diagnosis. (Causal RCA recomputed in the benchmark run; it reproduces the Phase 4
+published 1.000 / 1.000 exactly.)
+
 ## Project status
 
 - ✅ Phase 0 — starter scaffold (synthetic SCM, discovery, simulator, root-cause, FastAPI)
@@ -159,7 +215,7 @@ but with no causal path to it, its predicted effect is exactly 0.)
 - 🔄 Phase 2 — causal discovery (tuning sweep ✅, CMAPSS smoke run ✅, final config pick pending)
 - ✅ Phase 3 — DML effect estimation + refutation (smoke run: ATE error 0.004/unit vs observed-outcome truth, 3/3 refuters pass)
 - ✅ Phase 4 — end-to-end twin: fault injection, root-cause attribution (Top-1 1.000 under the deployed protocol), what-if validation, `/recommend` endpoint + explanation cards
-- ⬜ Phase 5 — benchmark vs correlational LightGBM baseline
+- ✅ Phase 5 — benchmark vs correlational LightGBM baseline: intervention RMSE 8.21 vs 18.46 points, RCA Top-1 1.000 vs 0.250 (notebook + script)
 - ⬜ Phase 6 — React Flow UI
 
 ## Tech stack
@@ -268,13 +324,15 @@ causaltwin/
 │   │   ├── tune_discovery.py           # Phase 2 PCMCI tuning sweep (+ discovery_tuning_results.json)
 │   │   ├── cmapss_discovery_smoke.py   # Phase 2 CMAPSS discovery smoke run (+ cmapss_discovery_smoke.json)
 │   │   ├── estimator_smoke.py          # Phase 3 estimator smoke run (+ estimator_smoke_results.json)
-│   │   └── phase4_end_to_end.py        # Phase 4 end-to-end run (+ phase4_results.json)
+│   │   ├── phase4_end_to_end.py        # Phase 4 end-to-end run (+ phase4_results.json)
+│   │   └── benchmark_baseline.py       # Phase 5 benchmark vs LightGBM baseline (+ benchmark_results.json)
 │   └── tests/
 │       ├── test_scm_engine.py
 │       ├── test_cmapss_loader.py
-│       └── test_phase4.py
+│       ├── test_phase4.py
+│       └── test_benchmark.py
 ├── frontend/                   # Phase 6 placeholder — see frontend/README.md
-├── notebooks/                  # Phase 5 benchmark notebook — see notebooks/README.md
+├── notebooks/                  # Phase 5 benchmark notebook (benchmark.ipynb) — see notebooks/README.md
 └── data/                       # local datasets (gitignored)
 ```
 

@@ -1,0 +1,385 @@
+{
+  "phase": "Phase 5 \u2014 CausalTwin vs correlational LightGBM baseline",
+  "protocol": {
+    "training": "both models trained on generate(n=2000, seed=0) \u2014 normal operation only",
+    "baseline": "LightGBM snapshot regressor: failure_risk(t) from all other nodes at t (incl. the lever and power_draw); counterfactual = bump the lever feature, other features held natural",
+    "causal": "Phase 4 structural simulator: own-lag AR equations fit on the same training data (ground-truth edges), exact steady-state shift propagation",
+    "intervention_truth": "app.faults.simulate_scm step hooks, same seed, settled-window means",
+    "config": {
+      "n_train": 2000,
+      "train_seed": 0,
+      "n_test": 2000,
+      "test_seed": 1,
+      "intervention_seed": 0,
+      "fan_deltas_rpm": [
+        40.0,
+        80.0,
+        120.0
+      ],
+      "scenarios": [
+        "normal",
+        "cooling_fault"
+      ],
+      "cooling_fault": {
+        "node": "coolant_temp",
+        "delta_z": 1.2
+      },
+      "intervention_window": [
+        1000,
+        1600
+      ],
+      "settled_window": [
+        1250,
+        1600
+      ],
+      "rca_n": 2000,
+      "rca_faults": [
+        {
+          "node": "coolant_temp",
+          "delta_z": 1.2
+        },
+        {
+          "node": "hpc_outlet_temp",
+          "delta_z": 1.2
+        },
+        {
+          "node": "vibration",
+          "delta_z": 1.2
+        },
+        {
+          "node": "oil_pressure",
+          "delta_z": -1.2
+        }
+      ],
+      "rca_seeds": [
+        0,
+        1,
+        2
+      ],
+      "rca_window": [
+        1000,
+        1060
+      ],
+      "lgbm_params": {
+        "n_estimators": 500,
+        "learning_rate": 0.05,
+        "num_leaves": 31,
+        "random_state": 0,
+        "verbose": -1
+      }
+    }
+  },
+  "in_distribution": {
+    "test_seed": 1,
+    "n_test": 2000,
+    "causal_rmse": 6.841568797155501,
+    "baseline_rmse": 12.10390391417932,
+    "note": "baseline predicts failure_risk(t) from the state at t; causal predicts it from the structural parents at their true lags (one-step). Each is scored the way that model is actually used."
+  },
+  "intervention": {
+    "rows": [
+      {
+        "scenario": "normal",
+        "fan_delta_rpm": 40.0,
+        "actual_change": -8.827048932534876,
+        "causal_predicted_change": -12.360544318948028,
+        "baseline_predicted_change": -0.08671503599290986,
+        "causal_abs_error": 3.5334953864131524,
+        "baseline_abs_error": 8.740333896541966
+      },
+      {
+        "scenario": "normal",
+        "fan_delta_rpm": 80.0,
+        "actual_change": -16.152328081608808,
+        "causal_predicted_change": -24.721088637896056,
+        "baseline_predicted_change": -0.520203083881924,
+        "causal_abs_error": 8.568760556287248,
+        "baseline_abs_error": 15.632124997726883
+      },
+      {
+        "scenario": "normal",
+        "fan_delta_rpm": 120.0,
+        "actual_change": -22.12088574191561,
+        "causal_predicted_change": -37.08163295684409,
+        "baseline_predicted_change": -0.7425080647648628,
+        "causal_abs_error": 14.960747214928478,
+        "baseline_abs_error": 21.37837767715075
+      },
+      {
+        "scenario": "cooling_fault",
+        "fan_delta_rpm": 40.0,
+        "actual_change": -10.13503014264841,
+        "causal_predicted_change": -12.360544318948028,
+        "baseline_predicted_change": -0.1594343063049095,
+        "causal_abs_error": 2.225514176299617,
+        "baseline_abs_error": 9.975595836343501
+      },
+      {
+        "scenario": "cooling_fault",
+        "fan_delta_rpm": 80.0,
+        "actual_change": -20.018453119268194,
+        "causal_predicted_change": -24.721088637896056,
+        "baseline_predicted_change": -0.5183739255443598,
+        "causal_abs_error": 4.702635518627861,
+        "baseline_abs_error": 19.500079193723835
+      },
+      {
+        "scenario": "cooling_fault",
+        "fan_delta_rpm": 120.0,
+        "actual_change": -28.835216337517352,
+        "causal_predicted_change": -37.08163295684409,
+        "baseline_predicted_change": -0.767961999832302,
+        "causal_abs_error": 8.246416619326737,
+        "baseline_abs_error": 28.06725433768505
+      }
+    ],
+    "causal_rmse": 8.213852989262069,
+    "baseline_rmse": 18.46315324992985,
+    "per_scenario": {
+      "normal": {
+        "causal_rmse": 10.160925226011283,
+        "baseline_rmse": 16.101674868105032
+      },
+      "cooling_fault": {
+        "causal_rmse": 5.629419189385915,
+        "baseline_rmse": 20.555099666569973
+      }
+    }
+  },
+  "root_cause": {
+    "causal": {
+      "cases": [
+        {
+          "fault_node": "coolant_temp",
+          "seed": 0,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "coolant_temp",
+          "seed": 1,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "coolant_temp",
+          "seed": 2,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "seed": 0,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "seed": 1,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "seed": 2,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "seed": 0,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "seed": 1,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "seed": 2,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "seed": 0,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "seed": 1,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "seed": 2,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        }
+      ],
+      "top1": 1.0,
+      "top3": 1.0,
+      "phase4_results_crosscheck": {
+        "phase4_top1": 1.0,
+        "phase4_top3": 1.0,
+        "matches": true
+      }
+    },
+    "importance": {
+      "ranking": [
+        "oil_pressure",
+        "hpc_outlet_temp",
+        "vibration",
+        "load",
+        "coolant_temp",
+        "fan_speed_nc",
+        "power_draw",
+        "maintenance_event"
+      ],
+      "gain": {
+        "load": 322676.00093865395,
+        "fan_speed_nc": 309240.9470729828,
+        "coolant_temp": 317315.310423851,
+        "vibration": 357244.5760881901,
+        "hpc_outlet_temp": 7839995.296464205,
+        "oil_pressure": 14258838.9184556,
+        "power_draw": 287950.16823506355,
+        "maintenance_event": 3070.063193321228
+      },
+      "cases": [
+        {
+          "fault_node": "coolant_temp",
+          "seed": 0,
+          "true_node_rank": 5,
+          "top1_hit": false,
+          "top3_hit": false
+        },
+        {
+          "fault_node": "coolant_temp",
+          "seed": 1,
+          "true_node_rank": 5,
+          "top1_hit": false,
+          "top3_hit": false
+        },
+        {
+          "fault_node": "coolant_temp",
+          "seed": 2,
+          "true_node_rank": 5,
+          "top1_hit": false,
+          "top3_hit": false
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "seed": 0,
+          "true_node_rank": 2,
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "seed": 1,
+          "true_node_rank": 2,
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "hpc_outlet_temp",
+          "seed": 2,
+          "true_node_rank": 2,
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "seed": 0,
+          "true_node_rank": 3,
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "seed": 1,
+          "true_node_rank": 3,
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "vibration",
+          "seed": 2,
+          "true_node_rank": 3,
+          "top1_hit": false,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "seed": 0,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "seed": 1,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        },
+        {
+          "fault_node": "oil_pressure",
+          "seed": 2,
+          "true_node_rank": 1,
+          "top1_hit": true,
+          "top3_hit": true
+        }
+      ],
+      "top1": 0.25,
+      "top3": 0.75,
+      "note": "ONE global ranking scored against every incident: importance has no per-incident view, so its rank for a fault node is the same in all 12 cases. That is the standard way practitioners use feature importance for diagnosis, and the asymmetry vs per-incident RCA is part of what is being measured \u2014 stated, not hidden."
+    },
+    "fault_set": [
+      {
+        "node": "coolant_temp",
+        "delta_z": 1.2
+      },
+      {
+        "node": "hpc_outlet_temp",
+        "delta_z": 1.2
+      },
+      {
+        "node": "vibration",
+        "delta_z": 1.2
+      },
+      {
+        "node": "oil_pressure",
+        "delta_z": -1.2
+      }
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "window": [
+      1000,
+      1060
+    ]
+  },
+  "runtime_seconds": 5.55
+}
