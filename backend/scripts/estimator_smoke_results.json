@@ -1,0 +1,90 @@
+{
+  "phase": "Phase 3 smoke \u2014 estimator validation on synthetic SCM",
+  "treatment": "fan_speed_nc",
+  "outcome": "failure_risk at t+3",
+  "horizon": 3,
+  "n_generated": 2000,
+  "data_seed": 0,
+  "confounders": [
+    "load",
+    "coolant_temp",
+    "vibration",
+    "hpc_outlet_temp",
+    "oil_pressure",
+    "power_draw",
+    "failure_risk",
+    "maintenance_event"
+  ],
+  "true_effect": {
+    "method": "pulse simulation with common random numbers on a z-space replica of generate() (replica validated bit-for-bit against generate() with interventions off); +1 z pulse to fan_speed_nc at spaced times, failure_risk differenced at t+3",
+    "replica_validated_exact": true,
+    "n_pulses": 72,
+    "true_effect_z_per_z": -0.6387572967505162,
+    "pulse_diff_std_z": 8.659649676957788e-07,
+    "analytic_effect_z_per_z": -0.6387499999999999,
+    "true_effect_per_80_fan_units": -7.665087561006194,
+    "true_effect_per_fan_unit": -0.09581359451257743,
+    "observed_outcome_effect_per_fan_unit": -0.0652885908617034,
+    "observed_outcome_effect_per_80_fan_units": -5.223087268936272,
+    "observed_outcome_note": "effect on the clipped engineering failure_risk (the outcome estimators see), same pulses; per +80 fan units before the /80 division"
+  },
+  "n_estimation_rows": 1997,
+  "estimate": {
+    "treatment": "fan_speed_nc",
+    "outcome": "failure_risk_h3",
+    "confounders": [
+      "load",
+      "coolant_temp",
+      "vibration",
+      "hpc_outlet_temp",
+      "oil_pressure",
+      "power_draw",
+      "failure_risk",
+      "maintenance_event"
+    ],
+    "ate": -0.06932685152751056,
+    "effect_mean": -0.06932685152751056,
+    "effect_std": 0.028262682484630642
+  },
+  "ate_error_per_fan_unit": 0.02648674298506687,
+  "ate_error_per_80_fan_units": 2.1189394388053495,
+  "confidence_interval_95": {
+    "ci_low_per_fan_unit": -0.07637652418926874,
+    "ci_high_per_fan_unit": -0.06227717886575235,
+    "refit_ate_per_fan_unit": -0.06932685152751056,
+    "true_effect_inside_ci": false
+  },
+  "refutation": {
+    "dowhy_base_ate_per_fan_unit": -0.0711426939077171,
+    "refuters": [
+      {
+        "refuter": "random_common_cause",
+        "estimated_effect": -0.0711426939077171,
+        "new_effect": -0.07114964161451326,
+        "p_value": 1.0,
+        "pass": true,
+        "interpretation": "PASS \u2014 adding a random common cause barely moves the estimate"
+      },
+      {
+        "refuter": "placebo_treatment_refuter",
+        "estimated_effect": -0.0711426939077171,
+        "new_effect": -0.000201694168063149,
+        "p_value": 0.94,
+        "pass": true,
+        "interpretation": "PASS \u2014 permuted (fake) treatment collapses the effect to ~0, as it should if the real estimate is genuinely driven by the treatment"
+      },
+      {
+        "refuter": "data_subset_refuter",
+        "estimated_effect": -0.0711426939077171,
+        "new_effect": -0.07099555710901655,
+        "p_value": 0.94,
+        "pass": true,
+        "interpretation": "PASS \u2014 estimate is stable on an 80% data subset"
+      }
+    ],
+    "all_refuters_pass": true
+  },
+  "ate_error_vs_observed_outcome_truth_per_fan_unit": 0.004038260665807161,
+  "estimator_vs_truth_notes": "LinearDML (-0.06933/unit) and DoWhy linear regression (-0.07114/unit) agree closely with each other. Both are attenuated relative to the LATENT z-space pulse truth (-0.09581/unit), and the DML 95% CI excludes the latent truth. Part of the gap is mechanical: generate() clips the observed failure_risk to [0, 100], and the same pulses applied to the clipped observed outcome give -0.06529/unit \u2014 the like-for-like target for estimators fit on observed data. The remaining gap vs the observed-outcome truth is 0.00404/unit (candidate contributors: RandomForest nuisance shrinkage in LinearDML and the mild hpc_outlet_temp nonlinearity; not isolated in this smoke run).",
+  "runtime_seconds": 30.78
+}
