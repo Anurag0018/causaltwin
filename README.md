@@ -64,7 +64,7 @@ structural only.
 ### Verification
 
 | Check | Result |
-|---|---|
+| --- | --- |
 | Environment setup (clean venv, install, runtime smoke) | Verified on macOS arm64, Python 3.11.9 |
 | Test suite | **25 / 25 passing** |
 | CMAPSS FD001 file | 20,631 rows · 100 engines · sha256 verified exact match |
@@ -76,7 +76,7 @@ Recall is **1.0 in every configuration** — PCMCI never misses a true edge; all
 positives, so precision is the battleground.
 
 | Config | n | tau_max | pc_alpha | Precision | Recall | Edge F1 | SHD |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | Baseline | 600 | 2 | 0.01 | 0.4286 | 1.0000 | 0.6000 | 16 |
 | **Best** | **2000** | **2** | **0.001** | **0.5714** | **1.0000** | **0.7273** | **9** |
 
@@ -90,7 +90,7 @@ effect from pulse simulation on the SCM (common random numbers). Full detail:
 `backend/scripts/estimator_smoke_results.json`.
 
 | Quantity | Value |
-|---|---|
+| --- | --- |
 | LinearDML estimate | **−0.0693** failure-risk points per +1 fan unit (95% CI −0.0764 … −0.0623) |
 | True effect on the observed (clipped) outcome | −0.0653 / unit → **ATE error 0.004 / unit** |
 | Latent (unclipped) true effect | −0.0958 / unit — the gap vs the estimate is the generator's [0, 100] output clipping, not estimator bias |
@@ -102,7 +102,7 @@ Sustained faults injected into the true dynamics (4 fault nodes × 3 seeds, pre-
 ranking by residual z-score):
 
 | Protocol | Top-1 | Top-3 |
-|---|---|---|
+| --- | --- | --- |
 | Naive (fit on the faulted series, single timestep) | 0.500 | 0.917 |
 | **Deployed (fit on the pre-fault reference period, score over the fault window)** | **1.000** | **1.000** |
 
@@ -121,7 +121,8 @@ at every node). Validation — cooling fault active; sustained fan overrides in 
 vs simulator predictions (failure-risk points):
 
 | Fan change | Latent analytic | Steady-state simulator | One-pass simulator | Actual (observed) |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- |
 | +40 rpm | −15.90 | −12.36 | −8.04 | −10.14 |
 | +80 rpm | −31.80 | −24.72 | −16.08 | −20.02 |
 | +120 rpm | −47.70 | −37.08 | −24.11 | −28.84 |
@@ -164,7 +165,7 @@ settled window, same protocol as the what-if validation above).
 sustained `do(fan_speed_nc)` overrides:
 
 | Scenario | Fan change | Actual | Causal twin | LightGBM |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | normal | +40 rpm | −8.83 | −12.36 | −0.09 |
 | normal | +80 rpm | −16.15 | −24.72 | −0.52 |
 | normal | +120 rpm | −22.12 | −37.08 | −0.74 |
@@ -193,7 +194,7 @@ prediction — and would still fail the intervention test above.
 **Root cause** — the same injected-fault set as above (4 faults × 3 seeds):
 
 | Method | Top-1 | Top-3 |
-|---|---|---|
+| --- | --- | --- |
 | **Causal RCA (per incident)** | **1.000** | **1.000** |
 | LightGBM gain importance (global) | 0.250 | 0.750 |
 
@@ -210,7 +211,7 @@ result above exactly.)
 Discovery on the longest-lived FD001 engine (unit 69, 362 cycles, 16 usable columns):
 
 | Series | ADF stationary | Edges found |
-|---|---|---|
+| --- | --- | --- |
 | Raw | 3 / 16 columns | 80 — dense, consistent with common-trend spurious links |
 | First-differenced | 16 / 16 columns | 34 — sparser, with physically plausible links (e.g. operating condition → HPC outlet pressure) |
 
@@ -276,7 +277,7 @@ cd backend && python -m pytest        # from the activated venv
 ## Tech stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Language | Python 3.11 (pinned — see Step Zero) |
 | API | FastAPI, Pydantic v2, uvicorn |
 | Causal discovery | Tigramite (PCMCI) |
@@ -294,7 +295,7 @@ cd backend && python -m pytest        # from the activated venv
 
 ## Repo map
 
-```
+```text
 causaltwin/
 ├── docker-compose.yml          # backend + frontend services
 ├── backend/
